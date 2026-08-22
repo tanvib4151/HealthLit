@@ -1,0 +1,109 @@
+HealthLit — Symptom Story
+May 17, 2026 – Jun 15, 2026
+
+WHY I'M SEEKING CARE
+Over the 30 days from May 17, 2026 to Jun 15, 2026, I recorded headache on 6 days, typically 7.5/10.
+I also recorded fatigue during this period.
+Replace this with your own words before your appointment — what you want looked at, and what you are hoping to get out of the visit.
+
+WHEN IT STARTED
+Headache began on Mar 1, 2019 (recorded by me), and first appears in my logs on May 21, 2026.
+My note on when it began: Started the year I changed jobs.
+Fatigue first appears in my logs on May 19, 2026. I have not recorded when it actually began.
+
+HOW IT HAS CHANGED
+Fatigue was about the same as before this period — typically 3.5/10 now against 3.5/10 across 12 earlier readings.
+
+WHAT I'M EXPERIENCING
+Headache was the most frequently recorded symptom — 6 days, 12 readings, typically 7.5/10 and ranging from 3 to 9, most often described as dull (6) and throbbing (6), and marked at head (12).
+Fatigue was recorded less often — 8 days, 8 readings, typically 3.5/10 and ranging from 3 to 4.
+Recurring words from my own written notes: light (2) and stabbing (2). These were read from the notes rather than selected from a list.
+
+FREQUENCY AND DURATION
+20 readings recorded on 14 of 30 days.
+Headache was recorded on 6 days, most often lasting 1–3 hours (6) and 3–6 hours (6).
+Fatigue was recorded on 8 days, most often lasting most of the day (8).
+
+PATTERNS AND POSSIBLE TRIGGERS
+100% of fatigue readings (8 of 8) were recorded in the evening — which may reflect when it is most noticeable, or simply when logging fits the day.
+These describe what was recorded close together in time. They are observations from self-reported entries, not established relationships.
+
+FACTORS THAT IMPROVE THE CONDITION
+Recorded as helping, but with no measurable difference in the readings that followed: rest (8).
+
+OTHER SYMPTOMS EXPERIENCED ALONGSIDE
+No other symptom was recorded on enough of the same days to report.
+
+MEDICATIONS AND INTERVENTIONS TRIED
+Medications I take: Sumatriptan, 50mg (As needed) and Amitriptyline, 10mg (Nightly).
+3 readings have a medication linked, which is not yet enough with a follow-up reading to compare.
+Non-drug interventions recorded: rest (8), quiet room (3) and medication (3).
+
+SEVERITY OVER TIME
+Daily average severity for each symptom, 0–10. Gaps are days with nothing logged.
+Date | Headache | Fatigue
+May 19 | — | 4
+May 21 | 8.5 | —
+May 22 | — | 3
+May 25 | — | 4
+May 26 | 5 | —
+May 28 | — | 4
+May 31 | 7.5 | —
+Jun 3 | — | 4
+Jun 5 | 7 | —
+Jun 6 | — | 3
+Jun 9 | — | 3
+Jun 10 | 7.5 | —
+Jun 12 | — | 3
+Jun 15 | 7 | —
+16 days in this period had no entries and are omitted from the table.
+
+LOGGING COVERAGE
+Logged on 14 of 30 days. Darker means higher average severity; blank means nothing logged.
+Date | Entries | Average severity | Symptoms
+May 17 | 0 | — | —
+May 18 | 0 | — | —
+May 19 | 1 | 4 | Fatigue
+May 20 | 0 | — | —
+May 21 | 2 | 8.5 | Headache
+May 22 | 1 | 3 | Fatigue
+May 23 | 0 | — | —
+May 24 | 0 | — | —
+May 25 | 1 | 4 | Fatigue
+May 26 | 2 | 5 | Headache
+May 27 | 0 | — | —
+May 28 | 1 | 4 | Fatigue
+May 29 | 0 | — | —
+May 30 | 0 | — | —
+May 31 | 2 | 7.5 | Headache
+Jun 1 | 0 | — | —
+Jun 2 | 0 | — | —
+Jun 3 | 1 | 4 | Fatigue
+Jun 4 | 0 | — | —
+Jun 5 | 2 | 7 | Headache
+Jun 6 | 1 | 3 | Fatigue
+Jun 7 | 0 | — | —
+Jun 8 | 0 | — | —
+Jun 9 | 1 | 3 | Fatigue
+Jun 10 | 2 | 7.5 | Headache
+Jun 11 | 0 | — | —
+Jun 12 | 1 | 3 | Fatigue
+Jun 13 | 0 | — | —
+Jun 14 | 0 | — | —
+Jun 15 | 2 | 7 | Headache
+
+HOW SEVERE HEADACHE WAS
+12 readings, typically 7.5/10. Height is how many readings landed at each level.
+Severity | Readings | Share
+3/10 | 1 | 8%
+5/10 | 2 | 17%
+7/10 | 3 | 25%
+8/10 | 3 | 25%
+9/10 | 3 | 25%
+Severity levels that were never recorded are omitted.
+
+HOW OFTEN EACH SYMPTOM APPEARED
+Number of days each symptom was recorded in this period.
+Symptom | Days | Readings | Typical severity
+Headache | 6 | 12 | 7.5/10
+Fatigue | 8 | 8 | 3.5/10

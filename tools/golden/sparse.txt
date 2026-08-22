@@ -1,0 +1,87 @@
+HealthLit — Symptom Story
+May 17, 2026 – Jun 15, 2026
+
+WHY I'M SEEKING CARE
+Over the 30 days from May 17, 2026 to Jun 15, 2026, I recorded pain on 7 days, typically 5/10.
+Replace this with your own words before your appointment — what you want looked at, and what you are hoping to get out of the visit.
+
+WHEN IT STARTED
+Pain first appears in my logs on May 19, 2026. I have not recorded when it actually began.
+
+HOW IT HAS CHANGED
+Pain was about the same as before this period — typically 5/10 now against 5/10 across 8 earlier readings.
+
+WHAT I'M EXPERIENCING
+Pain was the most frequently recorded symptom — 7 days, 7 readings, typically 5/10 and ranging from 4 to 7, and marked at lower_back (7).
+
+FREQUENCY AND DURATION
+7 readings recorded on 7 of 30 days. Duration was not recorded for 7 of them.
+Pain was recorded on 7 days, with no duration noted.
+
+PATTERNS AND POSSIBLE TRIGGERS
+No factor was recorded often enough, or consistently enough, to report a difference this period.
+
+FACTORS THAT IMPROVE THE CONDITION
+No relief factor was recorded on enough readings with a follow-up to compare.
+
+OTHER SYMPTOMS EXPERIENCED ALONGSIDE
+No other symptom was recorded on enough of the same days to report.
+
+MEDICATIONS AND INTERVENTIONS TRIED
+Medications I take: Sumatriptan, 50mg (As needed) and Amitriptyline, 10mg (Nightly).
+No readings have a medication linked to them yet, so no comparison is possible.
+
+SEVERITY OVER TIME
+Daily average severity for each symptom, 0–10. Gaps are days with nothing logged.
+Date | Pain
+May 19 | 5
+May 23 | 4
+May 27 | 6
+May 31 | 5
+Jun 4 | 7
+Jun 8 | 6
+Jun 12 | 5
+23 days in this period had no entries and are omitted from the table.
+
+LOGGING COVERAGE
+Logged on 7 of 30 days. Darker means higher average severity; blank means nothing logged.
+Date | Entries | Average severity | Symptoms
+May 17 | 0 | — | —
+May 18 | 0 | — | —
+May 19 | 1 | 5 | Pain
+May 20 | 0 | — | —
+May 21 | 0 | — | —
+May 22 | 0 | — | —
+May 23 | 1 | 4 | Pain
+May 24 | 0 | — | —
+May 25 | 0 | — | —
+May 26 | 0 | — | —
+May 27 | 1 | 6 | Pain
+May 28 | 0 | — | —
+May 29 | 0 | — | —
+May 30 | 0 | — | —
+May 31 | 1 | 5 | Pain
+Jun 1 | 0 | — | —
+Jun 2 | 0 | — | —
+Jun 3 | 0 | — | —
+Jun 4 | 1 | 7 | Pain
+Jun 5 | 0 | — | —
+Jun 6 | 0 | — | —
+Jun 7 | 0 | — | —
+Jun 8 | 1 | 6 | Pain
+Jun 9 | 0 | — | —
+Jun 10 | 0 | — | —
+Jun 11 | 0 | — | —
+Jun 12 | 1 | 5 | Pain
+Jun 13 | 0 | — | —
+Jun 14 | 0 | — | —
+Jun 15 | 0 | — | —
+
+HOW SEVERE PAIN WAS
+7 readings, typically 5/10. Height is how many readings landed at each level.
+Severity | Readings | Share
+4/10 | 1 | 14%
+5/10 | 3 | 43%
+6/10 | 2 | 29%
+7/10 | 1 | 14%
+Severity levels that were never recorded are omitted.

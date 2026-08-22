@@ -1,0 +1,130 @@
+HealthLit — Symptom Story
+May 17, 2026 – Jun 15, 2026
+
+WHY I'M SEEKING CARE
+Over the 30 days from May 17, 2026 to Jun 15, 2026, I recorded pain on 30 days, typically 5/10.
+I also recorded fatigue and inflammation during this period.
+Replace this with your own words before your appointment — what you want looked at, and what you are hoping to get out of the visit.
+
+WHEN IT STARTED
+Pain first appears in my logs on May 17, 2026. I have not recorded when it actually began.
+Fatigue first appears in my logs on May 17, 2026. I have not recorded when it actually began.
+Inflammation first appears in my logs on May 17, 2026. I have not recorded when it actually began.
+
+HOW IT HAS CHANGED
+Pain has been recorded on 30 of the last 30 days — close to daily.
+Fatigue has been recorded on 30 of the last 30 days — close to daily.
+Inflammation has been recorded on 30 of the last 30 days — close to daily.
+Inflammation ran higher in this period than beforehand — typically 6/10 across 30 readings, against 5/10 across 30 earlier readings.
+By contrast, Pain ran lower in this period than beforehand — typically 5/10 across 30 readings, against 6/10 across 30 earlier readings.
+By contrast, Fatigue was about the same as before this period — typically 6/10 now against 6/10 across 30 earlier readings.
+
+WHAT I'M EXPERIENCING
+Pain was the most frequently recorded symptom — 30 days, 30 readings, typically 5/10 and ranging from 5 to 6.
+Fatigue was recorded less often — 30 days, 30 readings, typically 6/10 and ranging from 5 to 6.
+Inflammation was recorded less often — 30 days, 30 readings, typically 6/10 and ranging from 5 to 6.
+
+FREQUENCY AND DURATION
+90 readings recorded on 30 of 30 days.
+Pain was recorded on 30 days, most often lasting most of the day (30).
+Fatigue was recorded on 30 days, most often lasting most of the day (30).
+Inflammation was recorded on 30 days, most often lasting most of the day (30).
+
+PATTERNS AND POSSIBLE TRIGGERS
+Readings of pain and fatigue were recorded almost entirely in the morning (60 of 60) — which may reflect when they are most noticeable, or simply when logging fits the day.
+These describe what was recorded close together in time. They are observations from self-reported entries, not established relationships.
+Also checked, with no consistent relationship found: weather and rest.
+
+FACTORS THAT IMPROVE THE CONDITION
+Recorded as helping, but with no measurable difference in the readings that followed: rest (45).
+
+OTHER SYMPTOMS EXPERIENCED ALONGSIDE
+Fatigue was recorded on 30 of the 30 days that pain was recorded (100%).
+Inflammation was recorded on 30 of the 30 days that pain was recorded (100%).
+
+MEDICATIONS AND INTERVENTIONS TRIED
+Medications I take: Sumatriptan, 50mg (As needed) and Amitriptyline, 10mg (Nightly).
+No readings have a medication linked to them yet, so no comparison is possible.
+Non-drug interventions recorded: rest (45).
+
+SEVERITY OVER TIME
+Daily average severity for each symptom, 0–10. Gaps are days with nothing logged.
+Date | Pain | Fatigue | Inflammation
+May 17 | 6 | 6 | 5
+May 18 | 6 | 6 | 6
+May 19 | 5 | 6 | 6
+May 20 | 5 | 6 | 5
+May 21 | 5 | 6 | 6
+May 22 | 5 | 6 | 6
+May 23 | 6 | 5 | 6
+May 24 | 6 | 6 | 6
+May 25 | 5 | 5 | 5
+May 26 | 5 | 6 | 5
+May 27 | 6 | 5 | 5
+May 28 | 5 | 6 | 5
+May 29 | 5 | 5 | 5
+May 30 | 5 | 6 | 5
+May 31 | 5 | 6 | 6
+Jun 1 | 5 | 6 | 6
+Jun 2 | 6 | 6 | 5
+Jun 3 | 6 | 5 | 5
+Jun 4 | 6 | 6 | 6
+Jun 5 | 5 | 5 | 6
+Jun 6 | 5 | 5 | 6
+Jun 7 | 5 | 6 | 6
+Jun 8 | 6 | 6 | 6
+Jun 9 | 5 | 5 | 6
+Jun 10 | 5 | 6 | 6
+Jun 11 | 5 | 6 | 5
+Jun 12 | 6 | 5 | 6
+Jun 13 | 5 | 6 | 6
+Jun 14 | 6 | 6 | 6
+Jun 15 | 5 | 5 | 5
+
+LOGGING COVERAGE
+Logged on 30 of 30 days. Darker means higher average severity; blank means nothing logged.
+Date | Entries | Average severity | Symptoms
+May 17 | 3 | 5.7 | Pain, Fatigue, Inflammation
+May 18 | 3 | 6 | Pain, Fatigue, Inflammation
+May 19 | 3 | 5.7 | Pain, Fatigue, Inflammation
+May 20 | 3 | 5.3 | Pain, Fatigue, Inflammation
+May 21 | 3 | 5.7 | Pain, Fatigue, Inflammation
+May 22 | 3 | 5.7 | Pain, Fatigue, Inflammation
+May 23 | 3 | 5.7 | Pain, Fatigue, Inflammation
+May 24 | 3 | 6 | Pain, Fatigue, Inflammation
+May 25 | 3 | 5 | Pain, Fatigue, Inflammation
+May 26 | 3 | 5.3 | Pain, Fatigue, Inflammation
+May 27 | 3 | 5.3 | Pain, Fatigue, Inflammation
+May 28 | 3 | 5.3 | Pain, Fatigue, Inflammation
+May 29 | 3 | 5 | Pain, Fatigue, Inflammation
+May 30 | 3 | 5.3 | Pain, Fatigue, Inflammation
+May 31 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 1 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 2 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 3 | 3 | 5.3 | Pain, Fatigue, Inflammation
+Jun 4 | 3 | 6 | Pain, Fatigue, Inflammation
+Jun 5 | 3 | 5.3 | Pain, Fatigue, Inflammation
+Jun 6 | 3 | 5.3 | Pain, Fatigue, Inflammation
+Jun 7 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 8 | 3 | 6 | Pain, Fatigue, Inflammation
+Jun 9 | 3 | 5.3 | Pain, Fatigue, Inflammation
+Jun 10 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 11 | 3 | 5.3 | Pain, Fatigue, Inflammation
+Jun 12 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 13 | 3 | 5.7 | Pain, Fatigue, Inflammation
+Jun 14 | 3 | 6 | Pain, Fatigue, Inflammation
+Jun 15 | 3 | 5 | Pain, Fatigue, Inflammation
+
+HOW SEVERE PAIN WAS
+30 readings, typically 5/10. Height is how many readings landed at each level.
+Severity | Readings | Share
+5/10 | 19 | 63%
+6/10 | 11 | 37%
+Severity levels that were never recorded are omitted.
+
+HOW OFTEN EACH SYMPTOM APPEARED
+Number of days each symptom was recorded in this period.
+Symptom | Days | Readings | Typical severity
+Pain | 30 | 30 | 5/10
+Fatigue | 30 | 30 | 6/10
+Inflammation | 30 | 30 | 6/10

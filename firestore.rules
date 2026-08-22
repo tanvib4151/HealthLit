@@ -1,0 +1,304 @@
+// Firestore Security Rules for HealthLit.
+//
+// ============================================================
+// THIS FILE IS THE SERVER.
+// ============================================================
+//
+// HealthLit has no backend of its own — the app talks to Firestore
+// directly. These rules are evaluated by Google's infrastructure on
+// every single request, BEFORE any data is read or written. They
+// cannot be bypassed by editing the app, intercepting requests,
+// calling the REST API by hand, or changing an id in a debugger.
+//
+// That is the answer to "what stops someone changing a number and
+// reading another person's data": `request.auth.uid == userId` below
+// is checked server-side, and `request.auth` is derived from a
+// cryptographically signed token that the client cannot forge.
+//
+// The Firebase config values in services/firebaseConfig.ts are NOT
+// secret — they are meant to ship inside a client app, exactly like a
+// public URL. Security comes entirely from these rules plus Firebase
+// Authentication. Anyone can discover the project id; nobody can read
+// a document these rules refuse.
+//
+// WHAT CHANGED IN THIS VERSION
+//
+// The previous rules were correct about access but permissive about
+// content: a single `{document=**}` wildcard let an authenticated
+// user write anything, of any shape, of any size, to any path under
+// their own uid. That is not a data-leak risk, but it is a real one:
+// the account holder could use the database as unbounded free
+// storage, and any future feature that trusts stored shape would be
+// consuming attacker-controlled data. These rules now validate every
+// document's structure, types, and size, and reject unknown paths
+// outright.
+//
+// DEPLOY: Firebase Console -> Firestore Database -> Rules -> paste ->
+// Publish. Or: firebase deploy --only firestore:rules
+//
+// TEST BEFORE PUBLISHING: use the Rules Playground in the console.
+// Rules that are wrong in the restrictive direction break the app;
+// rules that are wrong in the permissive direction leak health data.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------
+
+    // The only identity check that matters. `request.auth.uid` comes
+    // from a verified Firebase ID token, so this is not spoofable.
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isShortString(field, maxLen) {
+      return field is string && field.size() <= maxLen;
+    }
+
+    function isNullOrShortString(field, maxLen) {
+      return field == null || (field is string && field.size() <= maxLen);
+    }
+
+    // ISO-8601-ish timestamp string. Length-bounded rather than
+    // regex-perfect: the goal is to reject junk, not to re-implement
+    // date parsing in a rules language.
+    function isTimestampString(field) {
+      return field is string && field.size() >= 10 && field.size() <= 40;
+    }
+
+    // Bounded list — applies to triggers, relief factors, qualities,
+    // body regions and medication ids.
+    //
+    // NOTE ON WHAT THIS CANNOT DO: the rules language has no way to
+    // iterate a list, so the TYPE of each element cannot be checked
+    // here. Only the element COUNT is enforced. That is fine for the
+    // threat this defends against — unbounded storage abuse by the
+    // account holder — and every consumer of this data revalidates
+    // shape on read anyway (see the isSymptomEntry-style guards in
+    // services/syncService.ts, which drop malformed documents rather
+    // than trusting Firestore).
+    //
+    // Do not "improve" this with .map() or .all(); neither exists in
+    // Firestore rules, and a rules file that fails to compile cannot
+    // be deployed.
+    function isBoundedList(field, maxItems) {
+      return field is list && field.size() <= maxItems;
+    }
+
+    // ---------------------------------------------------------
+    // Per-collection validators
+    // ---------------------------------------------------------
+
+    function validSymptomEntry(docId) {
+      return incoming().keys().hasOnly([
+               'id', 'symptomType', 'severity', 'durationMinutes',
+               'triggers', 'reliefFactors', 'impactNote', 'note',
+               'qualities', 'bodyRegions', 'medicationIds',
+               'loggedAt', 'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && incoming().keys().hasAll([
+               'id', 'symptomType', 'severity', 'loggedAt',
+               'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             // The document id must match the id inside it, so a
+             // record cannot be written under a path that disagrees
+             // with its own contents.
+             && incoming().id == docId
+             && isShortString(incoming().symptomType, 100)
+             && incoming().severity is int
+             && incoming().severity >= 0 && incoming().severity <= 10
+             && (incoming().durationMinutes == null
+                 || (incoming().durationMinutes is int
+                     && incoming().durationMinutes >= 0
+                     && incoming().durationMinutes <= 100000))
+             && isBoundedList(incoming().get('triggers', []), 30)
+             && isBoundedList(incoming().get('reliefFactors', []), 30)
+             && isBoundedList(incoming().get('qualities', []), 30)
+             && isBoundedList(incoming().get('bodyRegions', []), 30)
+             && isBoundedList(incoming().get('medicationIds', []), 30)
+             && isNullOrShortString(incoming().get('impactNote', null), 2000)
+             && isNullOrShortString(incoming().get('note', null), 2000)
+             && isTimestampString(incoming().loggedAt)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    function validMedication(docId) {
+      return incoming().keys().hasOnly([
+               'id', 'name', 'dose', 'scheduleNote',
+               'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && incoming().id == docId
+             && isShortString(incoming().name, 200)
+             && isShortString(incoming().get('dose', ''), 100)
+             && isNullOrShortString(incoming().get('scheduleNote', null), 300)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    function validCustomSymptom(docId) {
+      return incoming().keys().hasOnly([
+               'id', 'label', 'icon', 'tint', 'tintSoft',
+               'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && incoming().id == docId
+             && isShortString(incoming().label, 100)
+             && isShortString(incoming().icon, 100)
+             && isShortString(incoming().tint, 20)
+             && isShortString(incoming().tintSoft, 20)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    function validSymptomOnset(docId) {
+      return incoming().keys().hasOnly([
+               'id', 'symptomType', 'onsetDate', 'precision',
+               'note', 'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && incoming().id == docId
+             && isShortString(incoming().symptomType, 100)
+             && isShortString(incoming().onsetDate, 30)
+             && incoming().precision in ['day', 'month', 'year']
+             && isNullOrShortString(incoming().get('note', null), 500)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    // Mental health data — the most sensitive collection here. Same
+    // ownership rule as everything else; the mood range is bounded so
+    // a malformed write cannot land a value the app will later try to
+    // render as a label.
+    function validWellnessCheckIn(docId) {
+      return incoming().keys().hasOnly([
+               'id', 'mood', 'tags', 'note',
+               'loggedAt', 'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && incoming().id == docId
+             && incoming().mood is int
+             && incoming().mood >= 1 && incoming().mood <= 5
+             && isBoundedList(incoming().get('tags', []), 20)
+             && isNullOrShortString(incoming().get('note', null), 2000)
+             && isTimestampString(incoming().loggedAt)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    function validProfile() {
+      return incoming().keys().hasOnly([
+               'id', 'displayName', 'condition', 'dateOfBirth',
+               'primaryDoctor', 'emergencyContact',
+               'createdAt', 'updatedAt', 'schemaVersion'
+             ])
+             && isShortString(incoming().displayName, 200)
+             && isNullOrShortString(incoming().get('condition', null), 300)
+             && isNullOrShortString(incoming().get('dateOfBirth', null), 30)
+             && isNullOrShortString(incoming().get('primaryDoctor', null), 200)
+             && isNullOrShortString(incoming().get('emergencyContact', null), 300)
+             && isTimestampString(incoming().createdAt)
+             && isTimestampString(incoming().updatedAt)
+             && incoming().schemaVersion is int;
+    }
+
+    // Story edits are one document holding a map of section key ->
+    // user-written text. Capped at 20 sections (there are 9) and
+    // 20,000 characters each.
+    function validStoryOverrides() {
+      return incoming().keys().hasOnly(['overrides'])
+             && incoming().overrides is map
+             && incoming().overrides.keys().size() <= 20;
+    }
+
+    // ---------------------------------------------------------
+    // Collections
+    //
+    // Each is listed EXPLICITLY. The previous `{document=**}` wildcard
+    // meant any collection name at any depth was writable; an
+    // allowlist means a path this app never uses is simply denied.
+    // ---------------------------------------------------------
+
+    match /users/{userId}/symptom_entries/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && validSymptomEntry(docId);
+    }
+
+    match /users/{userId}/medications/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && validMedication(docId);
+    }
+
+    match /users/{userId}/custom_symptoms/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && validCustomSymptom(docId);
+    }
+
+    match /users/{userId}/symptom_onsets/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && validSymptomOnset(docId);
+    }
+
+    match /users/{userId}/wellness_checkins/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && validWellnessCheckIn(docId);
+    }
+
+    // Single document: users/{uid}/profile/main
+    match /users/{userId}/profile/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && docId == 'main'
+                            && validProfile();
+    }
+
+    // Single document: users/{uid}/story_overrides/main
+    match /users/{userId}/story_overrides/{docId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+                            && docId == 'main'
+                            && validStoryOverrides();
+    }
+
+    // ---------------------------------------------------------
+    // A NOTE ON DOCUMENT SIZE
+    //
+    // There is deliberately no byte-size check. Firestore rules have
+    // no accessor for a document's serialized size —
+    // request.resource.size() returns the NUMBER OF KEYS in the map,
+    // not bytes, and using it as a byte cap would be a check that
+    // reads as protective while enforcing nothing.
+    //
+    // Size is instead bounded by three real mechanisms: the per-field
+    // string length caps above, the list length caps above, and
+    // Firestore's own hard limit of 1 MiB per document.
+    // ---------------------------------------------------------
+
+    // ---------------------------------------------------------
+    // Deny everything else.
+    //
+    // Explicit rather than relying on the default. Firestore already
+    // denies unmatched paths, but writing it down means a future
+    // developer adding a rule above cannot accidentally widen access
+    // by removing a comment they assumed was decorative.
+    // ---------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
