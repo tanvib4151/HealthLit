@@ -49,6 +49,8 @@ export interface HealthEvent {
   bodyRegions: string[];
   /** Medication ids recorded against this reading. */
   medicationIds: string[];
+  /** The patient's own description of how it feels, verbatim. */
+  feelsLikeNote: string | null;
   /** Impact note and free note, in that order, blanks removed. */
   notes: string[];
   at: Date;
@@ -159,7 +161,10 @@ export function buildHealthEvents(
     if (typeof entry.severity !== 'number' || Number.isNaN(entry.severity)) continue;
 
     const option = getSymptomOption(entry.symptomType, customSymptoms);
-    const notes = [entry.impactNote, entry.note]
+    // feelsLikeNote goes FIRST — it is the most clinically loaded of
+    // the three, being a direct answer to "what does it feel like"
+    // rather than a general remark, and the lexicon scans in order.
+    const notes = [entry.feelsLikeNote, entry.impactNote, entry.note]
       .filter((text): text is string => typeof text === 'string' && text.trim() !== '')
       .map((text) => text.trim());
 
@@ -177,6 +182,10 @@ export function buildHealthEvents(
       qualities: resolveList(entry.qualities),
       bodyRegions: (entry.bodyRegions ?? []).map((id) => getRegionLabel(id)),
       medicationIds: entry.medicationIds ?? [],
+      feelsLikeNote:
+        typeof entry.feelsLikeNote === 'string' && entry.feelsLikeNote.trim() !== ''
+          ? entry.feelsLikeNote.trim()
+          : null,
       notes,
       at,
       dateKey: dateKeyLocal(entry.loggedAt),

@@ -7,6 +7,7 @@ import { BodyMap } from '../components/body/BodyMap';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Chip } from '../components/ui/Chip';
+import { ChipGroupWithOther } from '../components/ui/ChipGroupWithOther';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Screen } from '../components/ui/Screen';
 import { SelectCard } from '../components/ui/SelectCard';
@@ -17,7 +18,14 @@ import { WellnessCard } from '../components/log/WellnessCard';
 import { SymptomEntry } from '../types/models';
 import { getRegionLabel } from '../utils/bodyRegions';
 import { CUSTOM_SYMPTOM_ICONS, CUSTOM_SYMPTOM_TINTS } from '../utils/customSymptomPalette';
-import { dateKeyFromDate, findLatestEntryForSymptomOnDay, formatHourMinute, formatTime, getStreakDays } from '../utils/entryStats';
+import {
+  dateKeyFromDate,
+  findLatestEntryForSymptomOnDay,
+  formatHourMinute,
+  formatRelativeDayLabel,
+  formatTime,
+  getStreakDays,
+} from '../utils/entryStats';
 import {
   DURATION_OPTIONS,
   LOCATION_SYMPTOMS,
@@ -111,6 +119,12 @@ export default function LogScreen() {
         stepCaption: {
           ...theme.typography.caption,
         },
+        dateConfirmation: {
+          ...theme.typography.body,
+          fontFamily: theme.fonts.semibold,
+          color: theme.colors.primary,
+          marginBottom: 2,
+        },
         buttonRow: {
           flexDirection: 'row',
           gap: theme.spacing.md,
@@ -134,6 +148,17 @@ export default function LogScreen() {
     resetDraft();
   };
 
+  // MUST be declared before the early return below. React tracks
+  // hooks by call order per component instance, not by name — a hook
+  // placed after a conditional `return` runs on every render except
+  // the one where that condition is true, so the hook count itself
+  // changes the instant `finishedEntries` flips from null to a real
+  // array. That produced exactly this crash, at exactly that moment:
+  // "Rendered fewer hooks than expected." Every hook a component
+  // calls must run unconditionally, in the same order, on every
+  // render — early returns are only safe once all of them have run.
+  const occurredAt = useLogStore((state) => state.draft.occurredAt);
+
   if (finishedEntries) {
     return (
       <SuccessView
@@ -156,6 +181,12 @@ export default function LogScreen() {
   return (
     <Screen showHeader>
       <ProgressBar totalSteps={PHASE_ORDER.length} currentStep={phaseIndex} />
+      {/* Visible for the whole session, not just the time step — the
+          date is chosen upstream on Home now, so this is the one place
+          in the flow that confirms which day is actually being logged. */}
+      <Text style={styles.dateConfirmation}>
+        Logging for {formatRelativeDayLabel(occurredAt)}
+      </Text>
       <Text style={styles.stepCaption}>{phaseCaption}</Text>
 
       {currentPhase === 'Symptom' && <SymptomStep />}
@@ -219,6 +250,10 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
   const firstUnsaved = symptomDrafts.find((card) => !card.saved)?.symptomType ?? null;
   const [focusedType, setFocusedType] = useState<string | null>(firstUnsaved);
   const [checkmarkType, setCheckmarkType] = useState<string | null>(null);
+  // Inline "add another symptom" picker, so remembering a second
+  // symptom mid-session doesn't mean backing out of the whole deck.
+  const [addingSymptom, setAddingSymptom] = useState(false);
+  const toggleSymptomType = useLogStore((state) => state.toggleSymptomType);
   const fade = React.useRef(new Animated.Value(1)).current;
 
   // Keep something focused as cards get saved, without stomping on a
@@ -286,6 +321,16 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
           backgroundColor: theme.colors.successSoft,
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
+        },
+        addPickerCard: { gap: theme.spacing.md },
+        addPickerTitle: {
+          ...theme.typography.body,
+          fontFamily: theme.fonts.semibold,
+        },
+        addPickerWrap: {
+          flexDirection: 'row' as const,
+          flexWrap: 'wrap' as const,
+          gap: theme.spacing.sm,
         },
         checkText: {
           ...theme.typography.body,
@@ -421,6 +466,69 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
           onDone={() => setWellnessDone(true)}
           onSkip={() => setWellnessDone(true)}
         />
+      )}
+
+      {/* Adding a symptom without leaving the deck.
+          Previously the only route was Back → symptom step → forward
+          again, which loses your place and is exactly the friction
+          that makes people log one symptom instead of three. Hidden
+          during editing, where the session is scoped to one existing
+          entry by definition. */}
+      {!isEditing && checkmarkType === null && !addingSymptom && (
+        <Button
+          label="+ Add another symptom"
+          variant="secondary"
+          onPress={() => setAddingSymptom(true)}
+          accessibilityHint="Adds another symptom card to this session"
+        />
+      )}
+
+      {!isEditing && addingSymptom && (
+        <Card style={styles.addPickerCard}>
+          <Text style={styles.addPickerTitle}>Add another symptom</Text>
+          <View style={styles.addPickerWrap}>
+            {SYMPTOM_OPTIONS.filter(
+              (option) =>
+                !symptomDrafts.some((card) => card.symptomType === option.type),
+            ).map((option) => (
+              <Chip
+                key={option.type}
+                label={option.label}
+                selected={false}
+                onToggle={() => {
+                  toggleSymptomType(option.type);
+                  // Open the new card immediately — adding a symptom
+                  // and then having to hunt for it is the same
+                  // friction in a different place.
+                  setFocusedType(option.type);
+                  setAddingSymptom(false);
+                }}
+              />
+            ))}
+            {customSymptoms
+              .filter(
+                (custom) =>
+                  !symptomDrafts.some((card) => card.symptomType === custom.id),
+              )
+              .map((custom) => (
+                <Chip
+                  key={custom.id}
+                  label={custom.label}
+                  selected={false}
+                  onToggle={() => {
+                    toggleSymptomType(custom.id);
+                    setFocusedType(custom.id);
+                    setAddingSymptom(false);
+                  }}
+                />
+              ))}
+          </View>
+          <Button
+            label="Cancel"
+            variant="ghost"
+            onPress={() => setAddingSymptom(false)}
+          />
+        </Card>
       )}
 
       {allSaved && checkmarkType === null && wellnessDone && (
@@ -683,27 +791,19 @@ function SymptomStep() {
  * stops being a single clear choice, so this stays a light nudge
  * rather than trying to cover every selected symptom at once.
  */
-const DAY_TICK_WIDTH = 76;
+// The day-picking dial itself now lives in components/ui/DayCarousel.tsx
+// — Home uses it to choose the date before a session starts, and this
+// screen no longer needs its own copy. TIME_TICK_WIDTH below is a
+// separate, still-local constant for the time-of-day dial, which
+// stays part of this flow.
 
 /**
- * Default day range shown in the "when did this happen" carousel, and
- * how much more is added each time someone taps "Load earlier days".
- *
- * NOT a literal infinite list — a truly unbounded array has no place
- * in a scrollable UI, and eagerly rendering thousands of animated
- * nodes (each interpolating scale/opacity off a shared scroll value,
- * with useNativeDriver: false since the animation drives layout) is a
- * real performance cost on the slower phones this app is built
- * around. Instead the range grows on demand: start generous (90 days
- * covers almost every real "I forgot to log this" case), and let
- * someone extend it as far back as they actually need, one deliberate
- * tap at a time, up to a very high safety ceiling that exists only to
- * stop an unbounded array, not to limit anyone's real use.
+ * The date itself is now chosen upstream, on Home, before a logging
+ * session ever starts — see HomeScreen's own DayCarousel. This step
+ * only asks the one remaining question, roughly what time, and shows
+ * the already-chosen date as a plain confirmation rather than asking
+ * for it a second time.
  */
-const INITIAL_DAYS_BACK = 90;
-const LOAD_MORE_DAYS = 180;
-const MAX_DAYS_BACK = 3650; // ten years
-
 function WhenStep() {
   const theme = useTheme();
   const symptomDrafts = useLogStore((state) => state.draft.symptomDrafts);
@@ -713,82 +813,7 @@ function WhenStep() {
   const entries = useLogStore((state) => state.entries);
   const editingEntryId = useLogStore((state) => state.editingEntryId);
   const startEditingEntry = useLogStore((state) => state.startEditingEntry);
-
-  const [containerWidth, setContainerWidth] = useState(0);
-  const scrollRef = React.useRef<any>(null);
-  const [daysBack, setDaysBack] = useState(INITIAL_DAYS_BACK);
-  // Oldest on the left, today on the right — reads like a timeline.
-  const dayOptions = useMemo(
-    () => [...buildRecentDayOptions(daysBack)].reverse(),
-    [daysBack],
-  );
   const selectedDateKey = dateKeyFromDate(occurredAt);
-  const selectedDayIndex = Math.max(
-    0,
-    dayOptions.findIndex((option) => option.dateKey === selectedDateKey),
-  );
-
-  const scrollX = React.useRef(new Animated.Value(selectedDayIndex * DAY_TICK_WIDTH)).current;
-  const latestScrollX = React.useRef(selectedDayIndex * DAY_TICK_WIDTH);
-  const wheelSettleTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const id = scrollX.addListener(({ value }) => {
-      latestScrollX.current = value;
-    });
-    return () => scrollX.removeListener(id);
-  }, [scrollX]);
-
-  const sidePadding = Math.max(0, containerWidth / 2 - DAY_TICK_WIDTH / 2);
-  const maxIndex = dayOptions.length - 1;
-
-  const snapToIndex = (rawIndex: number, animated: boolean) => {
-    const clamped = Math.max(0, Math.min(maxIndex, Math.round(rawIndex)));
-    const [year, month, day] = dayOptions[clamped].dateKey.split('-').map(Number);
-    const next = new Date(occurredAt);
-    next.setFullYear(year, month - 1, day);
-    setOccurredAt(next);
-    scrollRef.current?.scrollTo({ x: clamped * DAY_TICK_WIDTH, animated });
-  };
-
-  /**
-   * Grows the range backward and keeps the currently selected day
-   * fixed on screen.
-   *
-   * Older days are added to the FRONT of dayOptions (oldest-first
-   * ordering), which shifts every existing index to the right by the
-   * number of days just added. A tap is the right moment to correct
-   * for that: it's a single, deterministic point to recompute and
-   * re-apply the scroll offset, rather than trying to compensate
-   * reactively during a live scroll gesture — which is exactly the
-   * kind of race condition that produces a visible jump or flicker,
-   * and not something worth risking without a device to verify it on.
-   */
-  const loadEarlierDays = () => {
-    const added = Math.min(LOAD_MORE_DAYS, MAX_DAYS_BACK - daysBack);
-    if (added <= 0) return;
-    const shiftedIndex = selectedDayIndex + added;
-    setDaysBack((current) => current + added);
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ x: shiftedIndex * DAY_TICK_WIDTH, animated: false });
-    });
-  };
-
-  const canLoadEarlier = daysBack < MAX_DAYS_BACK;
-
-  const handleScrollSettle = () => {
-    snapToIndex(latestScrollX.current / DAY_TICK_WIDTH, true);
-  };
-
-  const handleWheel = (event: any) => {
-    if (Platform.OS !== 'web') return;
-    event.preventDefault?.();
-    const delta = event.deltaY ?? 0;
-    const nextX = Math.max(0, Math.min(maxIndex * DAY_TICK_WIDTH, latestScrollX.current + delta));
-    scrollRef.current?.scrollTo({ x: nextX, animated: false });
-    if (wheelSettleTimer.current) clearTimeout(wheelSettleTimer.current);
-    wheelSettleTimer.current = setTimeout(() => handleScrollSettle(), 120);
-  };
 
   const styles = useMemo(
     () =>
@@ -820,7 +845,10 @@ function WhenStep() {
           backgroundColor: theme.colors.primary,
         },
         tick: {
-          width: DAY_TICK_WIDTH,
+          // Base width only — the time dial (the sole remaining user
+          // of this style) always overrides it inline with its own
+          // TIME_TICK_WIDTH, so this default is never actually shown.
+          width: 68,
           alignItems: 'center' as const,
           justifyContent: 'center' as const,
         },
@@ -959,108 +987,12 @@ function WhenStep() {
   return (
     <View style={styles.stepBody}>
       <StepHeader
-        title="When did this happen?"
-        subtitle="Defaults to right now — scroll back if you're catching up on a day you missed."
+        title="What time, roughly?"
+        subtitle={`Logging for ${formatRelativeDayLabel(occurredAt)}. Change the day from Home if this isn't right.`}
       />
 
       <View>
-        <Text style={styles.sectionLabel}>Day</Text>
-        <View
-          style={styles.carouselCard}
-          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-          // @ts-expect-error onWheel is a standard web prop that react-native-web
-          // forwards; harmlessly ignored on native.
-          onWheel={handleWheel}
-          accessibilityRole="adjustable"
-          accessibilityLabel={`Day, ${dayOptions[selectedDayIndex]?.label ?? ''}`}
-        >
-          <View pointerEvents="none" style={styles.centerMarker} />
-          {containerWidth > 0 && (
-            <Animated.ScrollView
-              ref={scrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={DAY_TICK_WIDTH}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingHorizontal: sidePadding }}
-              contentOffset={{ x: selectedDayIndex * DAY_TICK_WIDTH, y: 0 }}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                { useNativeDriver: false },
-              )}
-              scrollEventThrottle={16}
-              onMomentumScrollEnd={handleScrollSettle}
-              onScrollEndDrag={(e) => {
-                if (Math.abs(e.nativeEvent.velocity?.x ?? 0) < 0.05) handleScrollSettle();
-              }}
-            >
-              {dayOptions.map((option, index) => {
-                const distance = scrollX.interpolate({
-                  inputRange: [
-                    (index - 1) * DAY_TICK_WIDTH,
-                    index * DAY_TICK_WIDTH,
-                    (index + 1) * DAY_TICK_WIDTH,
-                  ],
-                  outputRange: [0.35, 1, 0.35],
-                  extrapolate: 'clamp',
-                });
-                const scale = scrollX.interpolate({
-                  inputRange: [
-                    (index - 1) * DAY_TICK_WIDTH,
-                    index * DAY_TICK_WIDTH,
-                    (index + 1) * DAY_TICK_WIDTH,
-                  ],
-                  outputRange: [0.85, 1.08, 0.85],
-                  extrapolate: 'clamp',
-                });
-                const isSelected = index === selectedDayIndex;
-
-                return (
-                  <Pressable
-                    key={option.dateKey}
-                    onPress={() => snapToIndex(index, true)}
-                    style={styles.tick}
-                  >
-                    <Animated.View
-                      style={[
-                        styles.tickPill,
-                        isSelected && styles.tickPillSelected,
-                        { opacity: distance, transform: [{ scale }] },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tickLabel,
-                          { fontSize: 14 },
-                          isSelected && styles.tickLabelSelected,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </Animated.View>
-                  </Pressable>
-                );
-              })}
-            </Animated.ScrollView>
-          )}
-        </View>
-        {canLoadEarlier && (
-          <Pressable
-            onPress={loadEarlierDays}
-            hitSlop={10}
-            style={styles.loadEarlierRow}
-            accessibilityRole="button"
-            accessibilityLabel="Load earlier days"
-          >
-            <Text style={styles.loadEarlierText}>
-              Need to go back further? Load earlier days
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
-      <View>
-        <Text style={styles.sectionLabel}>Roughly what time?</Text>
+        <Text style={styles.sectionLabel}>Time</Text>
         <View
           style={styles.carouselCard}
           onLayout={(e) => setTimeContainerWidth(e.nativeEvent.layout.width)}
@@ -1159,24 +1091,6 @@ function WhenStep() {
       )}
     </View>
   );
-}
-
-/** "Today", "Yesterday", then weekday + short date going back further. */
-function buildRecentDayOptions(daysBack: number): { dateKey: string; label: string }[] {
-  const options: { dateKey: string; label: string }[] = [];
-  for (let i = 0; i < daysBack; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateKey = dateKeyFromDate(date);
-    const label =
-      i === 0
-        ? 'Today'
-        : i === 1
-          ? 'Yesterday'
-          : date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-    options.push({ dateKey, label });
-  }
-  return options;
 }
 
 /**
@@ -1743,6 +1657,20 @@ function FactorsSection({ symptomType }: { symptomType: string }) {
         stepBody: {
           gap: theme.spacing.md,
         },
+        feelsLikeInput: {
+          ...theme.typography.body,
+          backgroundColor: theme.colors.surfaceMuted,
+          borderRadius: theme.radius.lg,
+          borderWidth: 1.5,
+          borderColor: theme.colors.border,
+          padding: theme.spacing.md,
+          minHeight: 92,
+          textAlignVertical: 'top' as const,
+        },
+        factorSubHeading: {
+          ...theme.typography.caption,
+          marginTop: theme.spacing.sm,
+        },
         factorHeading: {
           ...theme.typography.body,
           fontWeight: '600' as const,
@@ -1768,6 +1696,9 @@ function FactorsSection({ symptomType }: { symptomType: string }) {
   const toggleTrigger = (value: string) => toggleTriggerFor(symptomType, value);
   const toggleRelief = (value: string) => toggleReliefFor(symptomType, value);
   const toggleQuality = (value: string) => toggleQualityFor(symptomType, value);
+  const feelsLikeNote = card?.feelsLikeNote ?? '';
+  const setFeelsLikeNoteFor = useLogStore((state) => state.setFeelsLikeNoteFor);
+  const setFeelsLikeNote = (text: string) => setFeelsLikeNoteFor(symptomType, text);
 
   // "Feels like" descriptors now belong to THIS symptom only — a
   // headache being "throbbing" says nothing about the fatigue logged
@@ -1782,7 +1713,24 @@ function FactorsSection({ symptomType }: { symptomType: string }) {
       />
       {showQualities ? (
         <>
-          <Text style={styles.factorHeading}>Feels like</Text>
+          <Text style={styles.factorHeading}>How does it feel?</Text>
+          {/* Free text FIRST, chips second. The chips are a prompt for
+              people who freeze at a blank box, not the primary input —
+              a patient writing "like a band tightening behind my eyes"
+              is giving better clinical information than any
+              combination of Sharp/Dull/Throbbing could capture, and
+              the story engine reads both. */}
+          <TextInput
+            value={feelsLikeNote}
+            onChangeText={setFeelsLikeNote}
+            multiline
+            placeholder="Describe it in your own words — e.g. throbbing behind my right eye, worse when I bend down"
+            placeholderTextColor={theme.colors.inkMuted}
+            style={styles.feelsLikeInput}
+            maxLength={600}
+            accessibilityLabel="Describe how this symptom feels, in your own words"
+          />
+          <Text style={styles.factorSubHeading}>Or tap what fits</Text>
           <View style={styles.chipWrap}>
             {QUALITY_OPTIONS.map((quality) => (
               <Chip
@@ -1796,27 +1744,21 @@ function FactorsSection({ symptomType }: { symptomType: string }) {
         </>
       ) : null}
       <Text style={styles.factorHeading}>Made it worse</Text>
-      <View style={styles.chipWrap}>
-        {TRIGGER_OPTIONS.map((trigger) => (
-          <Chip
-            key={trigger}
-            label={trigger}
-            selected={triggers.includes(trigger)}
-            onToggle={() => toggleTrigger(trigger)}
-          />
-        ))}
-      </View>
+      <ChipGroupWithOther
+        options={TRIGGER_OPTIONS}
+        selected={triggers}
+        onToggle={toggleTrigger}
+        placeholder="Something else that made it worse…"
+        accessibilityLabel="What made it worse"
+      />
       <Text style={styles.factorHeading}>Helped</Text>
-      <View style={styles.chipWrap}>
-        {RELIEF_OPTIONS.map((relief) => (
-          <Chip
-            key={relief}
-            label={relief}
-            selected={reliefFactors.includes(relief)}
-            onToggle={() => toggleRelief(relief)}
-          />
-        ))}
-      </View>
+      <ChipGroupWithOther
+        options={RELIEF_OPTIONS}
+        selected={reliefFactors}
+        onToggle={toggleRelief}
+        placeholder="Something else that helped…"
+        accessibilityLabel="What helped"
+      />
     </View>
   );
 }

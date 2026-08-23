@@ -287,6 +287,7 @@ function buildChangeSection(
 function buildExperienceSection(
   profiles: Finding[],
   noteFindings: Finding[],
+  describedEvents: HealthEvent[],
   references: ReferenceTracker,
 ): StorySection {
   references.reset();
@@ -296,6 +297,44 @@ function buildExperienceSection(
 
   const noteSentence = realizeNoteDescriptors(noteFindings.slice(0, 6));
   if (noteSentence !== null) body.push(noteSentence);
+
+  // The patient's own words, quoted EXACTLY.
+  //
+  // This is the one part of the report the engine must never
+  // paraphrase, summarise, or "clean up". Everything else here is a
+  // derived figure the app computed; this is testimony. A clinician
+  // reading "like a band tightening behind my eyes" learns something
+  // no severity score conveys, and rewording it would quietly
+  // substitute the app's vocabulary for the patient's — which is the
+  // exact failure this whole product exists to avoid.
+  const inOwnWords = describedEvents
+    .filter((event) => event.feelsLikeNote !== null)
+    .slice(-4);
+
+  if (inOwnWords.length > 0) {
+    body.push(
+      sentence(
+        'In my own words:',
+        inOwnWords.map((event) => event.entryId),
+        [],
+        'reference',
+      ),
+    );
+    for (const event of inOwnWords) {
+      body.push(
+        sentence(
+          `${formatDayLabelLong(event.dateKey)}, ${event.symptomLabel.toLowerCase()}: "${event.feelsLikeNote}"`,
+          [event.entryId],
+          [],
+          // 'user' marks it as the patient's own text rather than a
+          // derived claim, which also exempts it from the clinical
+          // language linter — the constraint is on what the APP
+          // asserts, never on how a patient describes their own body.
+          'user',
+        ),
+      );
+    }
+  }
 
   return { key: 'experience', title: SECTION_TITLES.experience, body };
 }
@@ -756,7 +795,7 @@ export function buildStoryReport(
     buildReasonSection(profiles, meta),
     buildOnsetSection(profiles, onsets, typeByLabel, firstTime),
     buildChangeSection(selectedChanges, progression, references),
-    buildExperienceSection(profiles, noteFindings, references),
+    buildExperienceSection(profiles, noteFindings, inRange, references),
     buildFrequencySection(profiles, qualityFinding, references),
     buildPatternsSection(selectedTriggers, selectedTime, rejectedFactors, references),
     buildReliefSection(selectedReliefs, noEffectList, references),

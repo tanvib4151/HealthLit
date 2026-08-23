@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { DayCarousel } from '../components/ui/DayCarousel';
 import { EntryListItem } from '../components/entries/EntryListItem';
 import { Card } from '../components/ui/Card';
 import { WellnessSupportCard } from '../components/wellness/WellnessSupportCard';
@@ -12,7 +13,12 @@ import { Screen } from '../components/ui/Screen';
 import { TrendLineChart } from '../components/charts/TrendLineChart';
 import { useLogStore } from '../store/logStore';
 import { getWeekComparison } from '../utils/comparisonStats';
-import { getStreakDays, getTodayStats, isStreakMilestone } from '../utils/entryStats';
+import {
+  formatRelativeDayLabel,
+  getStreakDays,
+  getTodayStats,
+  isStreakMilestone,
+} from '../utils/entryStats';
 import { buildDailySeries } from '../utils/trendData';
 import { useTheme } from '../hooks/useTheme';
 
@@ -47,6 +53,8 @@ export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
   const entries = useLogStore((state) => state.entries);
+  const selectedLogDate = useLogStore((state) => state.draft.occurredAt);
+  const setSelectedLogDate = useLogStore((state) => state.setOccurredAt);
 
   const todayStats = useMemo(() => getTodayStats(entries), [entries]);
   const streak = useMemo(() => getStreakDays(entries), [entries]);
@@ -80,6 +88,13 @@ export default function HomeScreen() {
           flexDirection: 'row',
           gap: theme.spacing.sm,
           marginTop: theme.spacing.lg,
+        },
+        dateCard: {
+          gap: theme.spacing.sm,
+        },
+        dateCardLabel: {
+          ...theme.typography.caption,
+          fontFamily: theme.fonts.semibold,
         },
         quickLog: {
           flexDirection: 'row',
@@ -295,10 +310,21 @@ export default function HomeScreen() {
         </FadeInView>
       )}
 
+      <FadeInView delay={60}>
+        <View style={styles.dateCard}>
+          <Text style={styles.dateCardLabel}>Log for</Text>
+          <DayCarousel
+            selectedDate={selectedLogDate}
+            onSelectDate={setSelectedLogDate}
+            accessibilityLabelPrefix="Day to log for"
+          />
+        </View>
+      </FadeInView>
+
       <FadeInView delay={80}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Log today's symptoms"
+          accessibilityLabel={`Log symptoms for ${formatRelativeDayLabel(selectedLogDate)}`}
           accessibilityHint="Opens the guided symptom check-in, takes about 2 minutes"
           onPress={() => router.push('/log')}
           style={({ pressed }) => [styles.quickLog, pressed && styles.quickLogPressed]}
@@ -307,7 +333,11 @@ export default function HomeScreen() {
             <Ionicons name="add" size={22} color={theme.colors.onPrimary} />
           </View>
           <View style={styles.quickLogText}>
-            <Text style={styles.quickLogTitle}>Log Today's Symptoms</Text>
+            <Text style={styles.quickLogTitle}>
+              {selectedLogDate.toDateString() === new Date().toDateString()
+                ? "Log Today's Symptoms"
+                : `Log Symptoms for ${formatRelativeDayLabel(selectedLogDate)}`}
+            </Text>
             <Text style={styles.quickLogSubtitle}>Takes about 2 minutes</Text>
           </View>
           <Ionicons

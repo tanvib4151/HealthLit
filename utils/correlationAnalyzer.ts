@@ -63,6 +63,7 @@ export interface CheckedFactor {
   reason: 'tooFewPaired' | 'differenceTooSmall' | 'notStable';
 }
 
+/** Trailing-window convenience — "last N days from today". */
 function eventsForRange(
   entries: SymptomEntry[],
   days: number,
@@ -72,6 +73,26 @@ function eventsForRange(
   const start = new Date();
   start.setDate(start.getDate() - (days - 1));
   return filterEventsToRange(buildHealthEvents(entries, customSymptoms), start, end);
+}
+
+/**
+ * Explicit start/end range — what a custom-range picker needs.
+ *
+ * Kept alongside the trailing-window version above rather than
+ * replacing it: existing preset buttons (7 days, 30 days) are
+ * naturally "from N days ago to today" and reads more simply that
+ * way, while a custom range genuinely needs two independent
+ * endpoints. Both funnel into the same buildFactorFindings /
+ * buildRejectedFactors pipeline either way, so there is exactly one
+ * statistical engine behind either entry point.
+ */
+function eventsForDateRange(
+  entries: SymptomEntry[],
+  startDate: Date,
+  endDate: Date,
+  customSymptoms: CustomSymptom[],
+) {
+  return filterEventsToRange(buildHealthEvents(entries, customSymptoms), startDate, endDate);
 }
 
 /**
@@ -122,6 +143,54 @@ export function checkedButNotFound(
   const events = eventsForRange(entries, days, customSymptoms);
   const reported = new Set(
     analyzeCorrelations(entries, days, customSymptoms).map((item) =>
+      item.factor.toLowerCase(),
+    ),
+  );
+
+  return buildRejectedFactors(events).filter(
+    (item) =>
+      item.reason !== 'tooFewPaired' && !reported.has(item.factor.toLowerCase()),
+  );
+}
+
+/** Same computation as analyzeCorrelations, over an explicit date range. */
+export function analyzeCorrelationsInRange(
+  entries: SymptomEntry[],
+  startDate: Date,
+  endDate: Date,
+  customSymptoms: CustomSymptom[] = [],
+): FactorCorrelation[] {
+  const events = eventsForDateRange(entries, startDate, endDate, customSymptoms);
+  return buildFactorFindings(events)
+    .filter((finding) => finding.facts.channel !== 'medication')
+    .map((finding) => {
+      const confidence = confidenceOf(finding);
+      return {
+        factor: `${finding.facts.factor}`,
+        type: finding.facts.channel === 'trigger' ? ('trigger' as const) : ('relief' as const),
+        occurrences: Number(finding.facts.withCount ?? 0),
+        avgSeverityChange: Number(finding.facts.contrast ?? 0),
+        improvementRate: Math.round(finding.stability * 100),
+        timeWindow: 24,
+        symptomLabel: finding.symptomLabel ?? '',
+        confidence: confidence.tier,
+        confidenceLabel: confidence.label,
+        support: confidence.support,
+      };
+    })
+    .sort((a, b) => Math.abs(b.avgSeverityChange) - Math.abs(a.avgSeverityChange));
+}
+
+/** Same computation as checkedButNotFound, over an explicit date range. */
+export function checkedButNotFoundInRange(
+  entries: SymptomEntry[],
+  startDate: Date,
+  endDate: Date,
+  customSymptoms: CustomSymptom[] = [],
+): CheckedFactor[] {
+  const events = eventsForDateRange(entries, startDate, endDate, customSymptoms);
+  const reported = new Set(
+    analyzeCorrelationsInRange(entries, startDate, endDate, customSymptoms).map((item) =>
       item.factor.toLowerCase(),
     ),
   );

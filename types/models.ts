@@ -50,6 +50,24 @@ export interface SymptomEntry {
   /** Body region ids (see utils/bodyRegions). Tier 1. */
   bodyRegions?: string[];
   /**
+   * The patient's own description of how the symptom FEELS, typed
+   * freely rather than picked from a list.
+   *
+   * Kept separate from `note` on purpose. `note` is a general remark
+   * about the episode ("couldn't work today"); this answers one
+   * specific clinical question — what does it feel like — which is
+   * among the first things any clinician asks and which a fixed chip
+   * list can never fully capture. Someone describing "like a band
+   * tightening behind my eyes" is giving better information than any
+   * combination of Sharp/Dull/Throbbing.
+   *
+   * Analysed by utils/symptomLexicon.ts, and quoted VERBATIM in
+   * reports — never paraphrased. See the note in storyReport.ts about
+   * why the patient's own words are the one thing the engine must not
+   * rewrite.
+   */
+  feelsLikeNote?: string | null;
+  /**
    * Medication ids taken for THIS symptom around this reading.
    * Optional, so entries saved before this existed simply lack it and
    * no migration is needed — schemaVersion stays 1.

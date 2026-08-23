@@ -101,7 +101,7 @@ service cloud.firestore {
       return incoming().keys().hasOnly([
                'id', 'symptomType', 'severity', 'durationMinutes',
                'triggers', 'reliefFactors', 'impactNote', 'note',
-               'qualities', 'bodyRegions', 'medicationIds',
+               'qualities', 'bodyRegions', 'medicationIds', 'feelsLikeNote',
                'loggedAt', 'createdAt', 'updatedAt', 'schemaVersion'
              ])
              && incoming().keys().hasAll([
@@ -126,6 +126,7 @@ service cloud.firestore {
              && isBoundedList(incoming().get('medicationIds', []), 30)
              && isNullOrShortString(incoming().get('impactNote', null), 2000)
              && isNullOrShortString(incoming().get('note', null), 2000)
+             && isNullOrShortString(incoming().get('feelsLikeNote', null), 600)
              && isTimestampString(incoming().loggedAt)
              && isTimestampString(incoming().createdAt)
              && isTimestampString(incoming().updatedAt)

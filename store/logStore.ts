@@ -50,6 +50,8 @@ export interface PerSymptomDraft {
   qualities: string[];
   /** Body region ids for THIS symptom. */
   bodyRegions: string[];
+  /** The patient's own words for how this symptom feels. */
+  feelsLikeNote: string;
   /** Medications taken for THIS symptom around this reading. */
   medicationIds: string[];
   impactNote: string;
@@ -83,6 +85,7 @@ function createEmptySymptomDraft(symptomType: string): PerSymptomDraft {
     reliefFactors: [],
     qualities: [],
     bodyRegions: [],
+    feelsLikeNote: '',
     medicationIds: [],
     impactNote: '',
     note: '',
@@ -124,6 +127,7 @@ function draftFromEntry(entry: SymptomEntry): LogDraft {
         reliefFactors: entry.reliefFactors,
         qualities: entry.qualities ?? [],
         bodyRegions: entry.bodyRegions ?? [],
+        feelsLikeNote: entry.feelsLikeNote ?? '',
         medicationIds: entry.medicationIds ?? [],
         impactNote: entry.impactNote ?? '',
         note: entry.note ?? '',
@@ -167,6 +171,7 @@ interface LogStoreState {
   toggleReliefFor: (symptomType: string, relief: string) => void;
   toggleQualityFor: (symptomType: string, quality: string) => void;
   toggleBodyRegionFor: (symptomType: string, regionId: string) => void;
+  setFeelsLikeNoteFor: (symptomType: string, text: string) => void;
   toggleMedicationFor: (symptomType: string, medicationId: string) => void;
   setImpactNoteFor: (symptomType: string, impactNote: string) => void;
   setNoteFor: (symptomType: string, note: string) => void;
@@ -300,6 +305,14 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
       })),
     })),
 
+  setFeelsLikeNoteFor: (symptomType, text) =>
+    set((state) => ({
+      draft: patchCard(state.draft, symptomType, (card) => ({
+        ...card,
+        feelsLikeNote: text,
+      })),
+    })),
+
   toggleMedicationFor: (symptomType, medicationId) =>
     set((state) => ({
       draft: patchCard(state.draft, symptomType, (card) => ({
@@ -333,6 +346,7 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
           // Severity deliberately NOT copied: two symptoms being
           // equally severe is a coincidence, not a default.
           durationKey: source.durationKey,
+          feelsLikeNote: source.feelsLikeNote,
           medicationIds: [...source.medicationIds],
           triggers: [...source.triggers],
           reliefFactors: [...source.reliefFactors],
@@ -365,6 +379,8 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
       reliefFactors: card.reliefFactors,
       qualities: card.qualities,
       bodyRegions: card.bodyRegions,
+      feelsLikeNote:
+        card.feelsLikeNote.trim() !== '' ? card.feelsLikeNote.trim() : null,
       medicationIds: card.medicationIds,
       impactNote: card.impactNote.trim() !== '' ? card.impactNote.trim() : null,
       note: card.note.trim() !== '' ? card.note.trim() : null,
