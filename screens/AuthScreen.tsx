@@ -178,8 +178,8 @@ export default function AuthScreen() {
           <Text style={styles.fieldLabel}>Password</Text>
           <TextInput
             value={password}
-            textContentType={mode === 'signup' ? 'newPassword' : 'password'}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
+            autoComplete={mode === 'signUp' ? 'new-password' : 'current-password'}
             passwordRules="minlength: 8;"
             onChangeText={(text) => {
               setPassword(text);
