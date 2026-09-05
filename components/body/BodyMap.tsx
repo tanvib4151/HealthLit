@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Ellipse, Rect, SvgUri } from 'react-native-svg';
 
 import { getRegionLabel } from '../../utils/bodyRegions';
@@ -22,10 +22,6 @@ type FigureAsset = {
   zones: Zone[];
 };
 
-// CC0 figures by Sebastian Wallroth, Wikimedia Commons.
-// Keeping the artwork separate from the interaction geometry means the
-// figure can stay professionally proportioned while the hit areas remain
-// forgiving enough to use on a phone.
 const FRONT_URI =
   'https://upload.wikimedia.org/wikipedia/commons/2/2c/Human_silhouette_gender_neutral_front.svg';
 const BACK_URI =
@@ -35,7 +31,6 @@ const FRONT_ZONES: Zone[] = [
   { id: 'head', kind: 'ellipse', cx: 280, cy: 86, rx: 70, ry: 82, priority: 5 },
   { id: 'face', kind: 'ellipse', cx: 280, cy: 94, rx: 50, ry: 60, priority: 10 },
   { id: 'neck', kind: 'rect', x: 244, y: 160, w: 72, h: 72, r: 22, priority: 10 },
-
   { id: 'shoulder_left', kind: 'ellipse', cx: 188, cy: 248, rx: 84, ry: 58, priority: 9 },
   { id: 'shoulder_right', kind: 'ellipse', cx: 371, cy: 248, rx: 84, ry: 58, priority: 9 },
   { id: 'chest_left', kind: 'rect', x: 188, y: 255, w: 92, h: 164, r: 36, priority: 7 },
@@ -44,23 +39,19 @@ const FRONT_ZONES: Zone[] = [
   { id: 'lower_abdomen', kind: 'rect', x: 208, y: 525, w: 143, h: 135, r: 34, priority: 8 },
   { id: 'hip_left', kind: 'ellipse', cx: 229, cy: 650, rx: 70, ry: 58, priority: 9 },
   { id: 'hip_right', kind: 'ellipse', cx: 330, cy: 650, rx: 70, ry: 58, priority: 9 },
-
   { id: 'upper_arm_left', kind: 'rect', x: 92, y: 278, w: 92, h: 248, r: 42, priority: 8 },
   { id: 'elbow_left', kind: 'ellipse', cx: 116, cy: 520, rx: 48, ry: 48, priority: 10 },
   { id: 'forearm_left', kind: 'rect', x: 63, y: 530, w: 86, h: 230, r: 40, priority: 8 },
   { id: 'hand_left', kind: 'ellipse', cx: 91, cy: 782, rx: 52, ry: 68, priority: 10 },
-
   { id: 'upper_arm_right', kind: 'rect', x: 375, y: 278, w: 92, h: 248, r: 42, priority: 8 },
   { id: 'elbow_right', kind: 'ellipse', cx: 443, cy: 520, rx: 48, ry: 48, priority: 10 },
   { id: 'forearm_right', kind: 'rect', x: 410, y: 530, w: 86, h: 230, r: 40, priority: 8 },
   { id: 'hand_right', kind: 'ellipse', cx: 468, cy: 782, rx: 52, ry: 68, priority: 10 },
-
   { id: 'thigh_left', kind: 'rect', x: 185, y: 665, w: 98, h: 268, r: 44, priority: 7 },
   { id: 'knee_left', kind: 'ellipse', cx: 232, cy: 935, rx: 49, ry: 47, priority: 10 },
   { id: 'lower_leg_left', kind: 'rect', x: 190, y: 965, w: 83, h: 163, r: 38, priority: 8 },
   { id: 'ankle_left', kind: 'ellipse', cx: 230, cy: 1119, rx: 39, ry: 34, priority: 10 },
   { id: 'foot_left', kind: 'ellipse', cx: 220, cy: 1165, rx: 65, ry: 37, priority: 10 },
-
   { id: 'thigh_right', kind: 'rect', x: 276, y: 665, w: 98, h: 268, r: 44, priority: 7 },
   { id: 'knee_right', kind: 'ellipse', cx: 327, cy: 935, rx: 49, ry: 47, priority: 10 },
   { id: 'lower_leg_right', kind: 'rect', x: 286, y: 965, w: 83, h: 163, r: 38, priority: 8 },
@@ -80,17 +71,14 @@ const BACK_ZONES: Zone[] = [
   { id: 'lower_back_right', kind: 'rect', x: 279, y: 520, w: 75, h: 125, r: 30, priority: 8 },
   { id: 'glute_left', kind: 'ellipse', cx: 229, cy: 648, rx: 70, ry: 66, priority: 9 },
   { id: 'glute_right', kind: 'ellipse', cx: 330, cy: 648, rx: 70, ry: 66, priority: 9 },
-
   { id: 'upper_arm_left', kind: 'rect', x: 92, y: 276, w: 92, h: 246, r: 42, priority: 8 },
   { id: 'elbow_left', kind: 'ellipse', cx: 116, cy: 516, rx: 48, ry: 48, priority: 10 },
   { id: 'forearm_left', kind: 'rect', x: 63, y: 526, w: 86, h: 226, r: 40, priority: 8 },
   { id: 'hand_left', kind: 'ellipse', cx: 91, cy: 772, rx: 52, ry: 68, priority: 10 },
-
   { id: 'upper_arm_right', kind: 'rect', x: 375, y: 276, w: 92, h: 246, r: 42, priority: 8 },
   { id: 'elbow_right', kind: 'ellipse', cx: 443, cy: 516, rx: 48, ry: 48, priority: 10 },
   { id: 'forearm_right', kind: 'rect', x: 410, y: 526, w: 86, h: 226, r: 40, priority: 8 },
   { id: 'hand_right', kind: 'ellipse', cx: 468, cy: 772, rx: 52, ry: 68, priority: 10 },
-
   { id: 'hamstring_left', kind: 'rect', x: 185, y: 674, w: 98, h: 250, r: 44, priority: 8 },
   { id: 'hamstring_right', kind: 'rect', x: 276, y: 674, w: 98, h: 250, r: 44, priority: 8 },
   { id: 'knee_left', kind: 'ellipse', cx: 232, cy: 925, rx: 49, ry: 47, priority: 10 },
@@ -106,9 +94,31 @@ const ASSETS: Record<BodyView, FigureAsset> = {
   back: { uri: BACK_URI, width: 559, height: 1190, zones: BACK_ZONES },
 };
 
+function zoneBox(zone: Zone, scale: number) {
+  if (zone.kind === 'ellipse') {
+    return {
+      left: (zone.cx - zone.rx) * scale,
+      top: (zone.cy - zone.ry) * scale,
+      width: zone.rx * 2 * scale,
+      height: zone.ry * 2 * scale,
+      borderRadius: Math.max(zone.rx, zone.ry) * scale,
+      zIndex: zone.priority ?? 1,
+    };
+  }
+  return {
+    left: zone.x * scale,
+    top: zone.y * scale,
+    width: zone.w * scale,
+    height: zone.h * scale,
+    borderRadius: (zone.r ?? 0) * scale,
+    zIndex: zone.priority ?? 1,
+  };
+}
+
 export function BodyMap({ selected, onToggle }: BodyMapProps) {
   const theme = useTheme();
   const [view, setView] = useState<BodyView>('front');
+  const [frameWidth, setFrameWidth] = useState(232);
   const asset = ASSETS[view];
   const selectedLabels = selected.map(getRegionLabel).join(', ');
 
@@ -116,6 +126,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
     () => [...asset.zones].sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1)),
     [asset.zones],
   );
+  const scale = frameWidth / asset.width;
 
   const styles = useMemo(
     () =>
@@ -151,6 +162,13 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
           backgroundColor: theme.colors.surface,
           borderRadius: theme.radius.xl,
           overflow: 'hidden',
+        },
+        visualLayer: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        hitTarget: {
+          position: 'absolute',
+          backgroundColor: 'transparent',
         },
         hint: { ...theme.typography.caption, textAlign: 'center' },
         selectedText: {
@@ -190,40 +208,39 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
         })}
       </View>
 
-      <View style={[styles.figureFrame, { aspectRatio: asset.width / asset.height }]}>
-        <SvgUri width="100%" height="100%" uri={asset.uri} />
+      <View
+        style={[styles.figureFrame, { aspectRatio: asset.width / asset.height }]}
+        onLayout={(event: LayoutChangeEvent) => setFrameWidth(event.nativeEvent.layout.width)}
+      >
+        <SvgUri width="100%" height="100%" uri={asset.uri} pointerEvents="none" />
+
         <Svg
           width="100%"
           height="100%"
           viewBox={`0 0 ${asset.width} ${asset.height}`}
-          style={StyleSheet.absoluteFillObject}
+          style={styles.visualLayer}
+          pointerEvents="none"
         >
           {orderedZones.map((zone) => {
-            const isSelected = selected.includes(zone.id);
+            if (!selected.includes(zone.id)) return null;
             const common = {
-              onPress: () => onToggle(zone.id),
-              fill: isSelected ? theme.colors.primary : 'rgba(0,0,0,0.001)',
-              fillOpacity: isSelected ? 0.3 : 1,
-              stroke: isSelected ? theme.colors.primary : 'transparent',
-              strokeWidth: isSelected ? 4 : 0,
+              fill: theme.colors.primary,
+              fillOpacity: 0.3,
+              stroke: theme.colors.primary,
+              strokeWidth: 4,
             };
-
-            if (zone.kind === 'ellipse') {
-              return (
-                <Ellipse
-                  key={zone.id}
-                  cx={zone.cx}
-                  cy={zone.cy}
-                  rx={zone.rx}
-                  ry={zone.ry}
-                  {...common}
-                />
-              );
-            }
-
-            return (
+            return zone.kind === 'ellipse' ? (
+              <Ellipse
+                key={`selected-${zone.id}`}
+                cx={zone.cx}
+                cy={zone.cy}
+                rx={zone.rx}
+                ry={zone.ry}
+                {...common}
+              />
+            ) : (
               <Rect
-                key={zone.id}
+                key={`selected-${zone.id}`}
                 x={zone.x}
                 y={zone.y}
                 width={zone.w}
@@ -235,6 +252,21 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
             );
           })}
         </Svg>
+
+        {orderedZones.map((zone) => {
+          const isSelected = selected.includes(zone.id);
+          return (
+            <Pressable
+              key={`hit-${zone.id}`}
+              onPress={() => onToggle(zone.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`${getRegionLabel(zone.id)}${isSelected ? ', selected' : ''}`}
+              accessibilityHint={isSelected ? 'Double tap to remove this area' : 'Double tap to select this area'}
+              style={[styles.hitTarget, zoneBox(zone, scale)]}
+            />
+          );
+        })}
       </View>
 
       <Text style={styles.hint}>
