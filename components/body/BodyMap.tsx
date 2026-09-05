@@ -16,20 +16,18 @@ type Zone =
   | { id: string; priority?: number; kind: 'rect'; x: number; y: number; w: number; h: number; r?: number };
 
 type FigureAsset = {
-  pngUri: string;
+  pngSource: number;
   width: number;
   height: number;
   zones: Zone[];
 };
 
-// CC0 artwork by Sebastian Wallroth, Wikimedia Commons.
-// We render the same transparent PNG once as the visible figure and once as
-// an alpha mask. Every tappable/highlighted region is therefore intersected
-// with the figure itself, so it cannot extend beyond the real body contour.
-const FRONT_PNG =
-  'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Human_silhouette_gender_neutral_front.svg/500px-Human_silhouette_gender_neutral_front.svg.png';
-const BACK_PNG =
-  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Human_silhouette_gender_neutral_back.svg/500px-Human_silhouette_gender_neutral_back.svg.png';
+// CC0 artwork by Sebastian Wallroth, Wikimedia Commons, vendored locally.
+// The same bundled transparent PNG is rendered once as the visible figure
+// and once as an alpha mask. Every tappable/highlighted region is therefore
+// intersected with the actual body contour and the map works fully offline.
+const FRONT_PNG = require('../../assets/body/body-front.png');
+const BACK_PNG = require('../../assets/body/body-back.png');
 
 const FRONT_ZONES: Zone[] = [
   { id: 'head', kind: 'ellipse', cx: 280, cy: 86, rx: 70, ry: 82, priority: 5 },
@@ -94,8 +92,8 @@ const BACK_ZONES: Zone[] = [
 ];
 
 const ASSETS: Record<BodyView, FigureAsset> = {
-  front: { pngUri: FRONT_PNG, width: 559, height: 1204, zones: FRONT_ZONES },
-  back: { pngUri: BACK_PNG, width: 559, height: 1190, zones: BACK_ZONES },
+  front: { pngSource: FRONT_PNG, width: 559, height: 1204, zones: FRONT_ZONES },
+  back: { pngSource: BACK_PNG, width: 559, height: 1190, zones: BACK_ZONES },
 };
 
 export function BodyMap({ selected, onToggle }: BodyMapProps) {
@@ -187,7 +185,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
           <Defs>
             <Mask id={maskId} x={0} y={0} width={asset.width} height={asset.height} maskType="alpha">
               <SvgImage
-                href={{ uri: asset.pngUri }}
+                href={asset.pngSource}
                 x={0}
                 y={0}
                 width={asset.width}
@@ -198,7 +196,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
           </Defs>
 
           <SvgImage
-            href={{ uri: asset.pngUri }}
+            href={asset.pngSource}
             x={0}
             y={0}
             width={asset.width}
