@@ -6,7 +6,6 @@
     "scheme": "healthlit",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
     "primaryColor": "#F09CBB",
     "ios": {
@@ -41,7 +40,6 @@
     "android": {
       "package": "com.healthlit.app",
       "versionCode": 1,
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#F09CBB"
