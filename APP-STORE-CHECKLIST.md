@@ -1,129 +1,246 @@
-# App Store submission — status and plan
+# HealthLit App Store release checklist
 
-## The honest answer on timing
+Updated September 5, 2026 for the local-only v1.0 release.
 
-**Live on the App Store this weekend is not achievable.** Submitted for review by the weekend is achievable *if* your Apple Developer account already exists and device testing goes cleanly. I'd rather tell you that now than have you find out on Sunday.
+## Release decision
 
-Here's what's actually in the way, in order of severity:
+**Feature freeze now.** Do not add major features before v1 ships. From this point forward, changes should be limited to release blockers, crashes, data-loss bugs, accessibility problems, misleading medical wording, and App Store submission requirements.
 
-**1. The project could not build.** `package.json` declared 12 dependencies while the code imports 27. `zustand`, `firebase`, `async-storage`, `expo-print`, `react-native-svg` and ten others were missing. It runs on your machine because they're in your `node_modules` from earlier installs, but EAS Build starts from a clean container and installs from `package.json` — it would have failed in under a minute. This is fixed by one command below.
+## Already complete in the repo
 
-**2. The app has never run on a physical iPhone.** Expo Go is not a standalone build. Things that routinely work in Expo Go and break in a real build: custom fonts, the splash screen handoff, `react-native-svg`, `expo-glass-effect`, and AsyncStorage persistence. You cannot skip this step, and it's the one most likely to eat a day.
+- [x] iOS bundle identifier is set: `com.healthlit.app`.
+- [x] App version is `1.0.0`; iOS build number starts at `1` and production builds auto-increment.
+- [x] Production EAS build profile exists.
+- [x] Placeholder Apple credentials were removed from `eas.json`; EAS can prompt securely instead of reading fake values from source control.
+- [x] App icon, splash configuration, export-compliance flags, and iOS privacy manifest are present.
+- [x] Firebase remains intentionally unconfigured for v1, so account/sign-in UI is hidden and no HealthLit cloud backend is required.
+- [x] Developer Tools are hidden in production via `__DEV__`.
+- [x] Privacy policy is aligned with the local-only v1 build.
+- [x] Public privacy/support pages exist under `/docs` for GitHub Pages.
+- [x] Privacy Policy and Support links are accessible from Profile inside the app.
+- [x] App Store metadata/reviewer notes are updated for a no-account release.
+- [x] Generated report language has explicit safeguards against diagnostic, causal, predictive, and treatment-advice phrasing.
+- [x] Local reminders use generic notification copy and do not require a push server.
+- [x] CI release check added: clean `npm ci`, TypeScript, and Expo Doctor on every push/PR.
 
-**3. Apple Developer Program enrolment.** $99/year. Individual accounts usually clear in 24–48h; organisation accounts need a D-U-N-S number and can take **two weeks or more**. If you haven't started this, it is the binding constraint and nothing else matters until it's done. Start it today.
+## BLOCKERS before App Review
 
-**4. Review time.** Median is ~24h, but Medical-category apps get read properly. Budget for one rejection round.
+### 1. Make the privacy and support URLs live
 
-Realistic best case, assuming the account exists: build and device-test Thursday/Friday, submit Saturday, live mid-next-week.
+The repository contains:
 
----
+- `docs/privacy.html`
+- `docs/support.html`
+- `docs/index.html`
 
-## What I've already done
+In GitHub → repository **Settings → Pages**:
 
-| Item | Status |
-|---|---|
-| App Store icon had an alpha channel | **Fixed** — flattened to RGB. This causes `ITMS-90717` and a hard upload rejection |
-| No bundle identifier | **Fixed** — `com.healthlit.app` (change if you own a domain) |
-| No version/build number | **Fixed** — 1.0.0 / build 1, with `autoIncrement` for later builds |
-| No `eas.json` | **Fixed** — dev/preview/production profiles |
-| Export compliance prompt on every build | **Fixed** — `ITSAppUsesNonExemptEncryption: false`, accurate since you're HTTPS-only |
-| iOS privacy manifest | **Added** — UserDefaults reason code, required since 2024 |
-| No medical disclaimer | **Added** — first-run, acknowledged once, stored locally |
-| No privacy policy | **Drafted** — `PRIVACY-POLICY.md`, matches actual data flows |
-| Store metadata | **Written** — `APP-STORE-METADATA.md`, paste-ready |
-| Privacy nutrition labels | **Answered** — same file |
-| Reviewer notes | **Written** — same file |
+1. Source: **Deploy from a branch**.
+2. Branch: **main**.
+3. Folder: **/docs**.
+4. Save.
 
----
+Then verify these exact URLs in a private browser window:
 
-## Step 1 — Fix dependencies (5 minutes, do this first)
+- `https://tanvib4151.github.io/HealthLit/privacy.html`
+- `https://tanvib4151.github.io/HealthLit/support.html`
+- `https://tanvib4151.github.io/HealthLit/`
 
-```powershell
-cd C:\Users\danie\Downloads\healthlit-step1\healthlit-working-backup
+Do not submit while any of them return a 404.
 
-npx expo install zustand firebase react-native-svg `
-  @react-native-async-storage/async-storage @react-navigation/bottom-tabs `
-  @expo-google-fonts/inter expo-font expo-splash-screen expo-print `
-  expo-sharing expo-linear-gradient expo-web-browser expo-auth-session `
-  expo-glass-effect
+Also verify that **support@healthlit.app** is a real mailbox that someone checks. If it is not, change the address in the policy, support page, and App Store materials before submission.
 
-npx expo install --fix
-npx expo-doctor
+### 2. Run the release checks locally
+
+After pulling the latest `main`:
+
+```bash
+npm ci
+npm run release:check
 ```
 
-Use `npx expo install`, **not** `npm install`. It picks versions matching your SDK; I deliberately haven't hardcoded them, because your `package.json` says `expo ~54.0.0` while the current SDK is 57 and I can't verify which you're on from here. Run `npx expo --version` to confirm — it determines every other version.
+Do not build for App Store distribution until both commands finish successfully.
 
-If peer conflicts appear, `--legacy-peer-deps` as usual.
+The same checks also run in GitHub Actions under **Release check**.
 
-**Then commit `package.json` and `package-lock.json`.** This was the single biggest risk in the project and it should never regress.
+### 3. Remove the body-map network dependency
 
-## Step 2 — Build for a real device (30 min, then ~20 min of waiting)
+The professional front/back body artwork is currently loaded from Wikimedia at runtime. The interaction/highlight geometry is correct, but relying on a remote asset means the figure can fail to appear offline or on a blocked network.
 
-```powershell
-npm install -g eas-cli
+Before final submission, download the two verified CC0 source SVGs and vendor them into the app, for example:
+
+- `assets/body/body-front.svg`
+- `assets/body/body-back.svg`
+
+Then update `components/body/BodyMap.tsx` to use the bundled assets rather than Wikimedia URLs.
+
+This is a production-quality blocker because the rest of the logging flow is designed to work offline.
+
+### 4. Production build and TestFlight
+
+Use the actual store build, not Expo Go, for final QA.
+
+```bash
+npm install --global eas-cli
 eas login
-eas build:configure
-eas build --profile development --platform ios
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
 ```
 
-Install the resulting build on your iPhone and **use the whole app**: log a multi-symptom session, generate a report, tap a sentence to open the evidence sheet, export a PDF, force-quit and reopen to confirm data persisted, then try it in dark mode.
+The submitted build appears in App Store Connect/TestFlight after Apple processes it. Install that exact build through TestFlight before submitting it for App Review.
 
-Expect to find something. That's the point of this step.
+## TestFlight acceptance matrix
 
-## Step 3 — Decisions only you can make
+Every item below should pass on a physical iPhone using the production/TestFlight build.
 
-**Firebase.** `services/firebaseConfig.ts` still contains `apiKey: 'YOUR_API_KEY'` — sign-in doesn't work at all right now. Two options:
+### Launch and persistence
 
-- **Ship v1 without sign-in** (my recommendation). The app is local-first; nothing depends on it. You remove a whole class of review risk, and your privacy answer becomes "we don't collect data", which is both simpler and a genuinely better listing. Add sync in 1.1.
-- **Configure Firebase properly** — real credentials, verify `firestore.rules` are deployed, and test sign-in on device. That's most of a day, and rules being wrong is how health apps end up in the news.
+- [ ] Fresh install reaches onboarding without a crash.
+- [ ] Medical notice is readable and can be acknowledged.
+- [ ] Force-quit and reopen retains entries, profile, medications, settings, onsets, wellness check-ins, and report edits.
+- [ ] Reboot the phone and confirm data remains.
 
-If you go with option one, hide the Profile → "Back up & Sync" entry point and answer **No** to data collection.
+### Core logging
 
-**Developer Tools in Profile.** "Load Demo Data" and "Clear All Data" are visible to users. Reviewers actually need Load Demo Data (my reviewer notes tell them to use it), so leave it for v1 — but decide deliberately rather than by accident.
+- [ ] Log one symptom with only required fields.
+- [ ] Log several symptoms in one session.
+- [ ] Start/end time selector works at midnight and near day boundaries.
+- [ ] Body map selects and deselects front and back regions; visible selection follows the body silhouette.
+- [ ] Severity cannot be saved accidentally without a user selection.
+- [ ] Add a custom symptom and log it.
+- [ ] Edit and delete a saved entry.
+- [ ] Backdate an entry and confirm it appears only on the correct selected day.
 
-**Bundle ID.** `com.healthlit.app` is a placeholder. If you own a domain, use reverse-DNS of it. **This cannot be changed after your first upload.**
+### History and reports
 
-## Step 4 — App Store Connect
+- [ ] Home date carousel changes the log shown for that date.
+- [ ] View Log opens the selected day, not today's entries.
+- [ ] History can reach entries older than 30 days.
+- [ ] Create at least four entries and generate a Story/report.
+- [ ] Evidence/details open for supported report findings.
+- [ ] Custom date range includes the full final day.
+- [ ] Export/share a PDF successfully.
+- [ ] Printed/shared report contains no diagnostic or causal claim.
 
-1. Enrol in the Apple Developer Program if you haven't. **Today.**
-2. Host the privacy policy publicly. GitHub Pages, 15 minutes.
-3. Create the app record in App Store Connect, bundle ID matching `app.json`.
-4. Paste everything from `APP-STORE-METADATA.md`.
-5. Screenshots at 6.9" (1320 × 2868), with demo data loaded.
-6. Production build and submit:
+### Offline test
 
-```powershell
-eas build --profile production --platform ios
-eas submit --profile production --platform ios
-```
+Turn on Airplane Mode before opening the app.
 
-Fill in the three `REPLACE_WITH_` fields in `eas.json` first (Apple ID, App Store Connect app ID, Team ID).
+- [ ] App launches.
+- [ ] Existing entries load.
+- [ ] New entries save.
+- [ ] History works.
+- [ ] Story/report generation works.
+- [ ] PDF generation works.
+- [ ] Body map still renders after the SVG assets are vendored locally.
+- [ ] Reminder settings do not hang or crash.
 
-## Step 5 — TestFlight
+Then reconnect and confirm nothing changes or disappears.
 
-Push to TestFlight before submitting for review and give it 24 hours with you and your co-founder using it daily. TestFlight review is much lighter than App Store review, so this costs you almost nothing and catches the things device testing in one sitting misses.
+### Failure/interruption test
 
----
+- [ ] Background the app midway through logging; return and verify the draft behaves predictably.
+- [ ] Force-quit during an unfinished log; reopening must not corrupt saved entries.
+- [ ] Tap Save repeatedly/rapidly; no duplicate entry should be created unexpectedly.
+- [ ] Rapidly move the date, severity, and time sliders to both edges; no bounce loop or stuck selector.
+- [ ] Deny notification permission; reminder UI explains what happened instead of silently failing.
 
-## Likely rejection reasons, ranked
+### Accessibility
 
-1. **Privacy policy URL missing or 404s.** The most common rejection full stop. Test the link in a private browser window.
-2. **Medical claims.** Mitigated: the language lint blocks causal and diagnostic phrasing, the disclaimer is first-run, and the reviewer notes address it directly. Your description copy is the remaining exposure — don't add "discover your triggers" style claims later.
-3. **Guideline 2.1 — incomplete information.** Reviewers who can't find the main feature reject. The reviewer notes walk them through Load Demo Data step by step.
-4. **Crash on launch.** Almost always something that works in Expo Go and not in a standalone build. Step 2 is the mitigation.
-5. **Sign-in that doesn't work.** Currently guaranteed, given the placeholder API key. Either fix it or remove it.
+Test with iOS **VoiceOver** enabled:
 
----
+- [ ] Bottom navigation announces each tab clearly.
+- [ ] Date carousel is understandable and adjustable.
+- [ ] Start and end time controls announce their value and can be adjusted.
+- [ ] Severity control announces its numeric value and can be adjusted.
+- [ ] Body-map regions announce meaningful anatomical labels and selected state.
+- [ ] Buttons, chips, switches, links, and delete actions have understandable labels.
+- [ ] Privacy Policy and Support are announced as links.
 
-## What I could not do from here
+Test with **Settings → Accessibility → Display & Text Size → Larger Text** at a very large setting:
 
-- Enrol you in the Apple Developer Program
-- Run EAS Build (needs your Apple credentials and provisioning)
-- Test on a physical device
-- Host the privacy policy
-- Take screenshots
-- Configure real Firebase credentials
+- [ ] No important button text is clipped.
+- [ ] No screen requires impossible horizontal scrolling.
+- [ ] Logging controls remain usable.
+- [ ] Report/story text remains readable.
 
-## Still open from before
+Also check light mode, dark mode, Reduce Motion, and increased contrast if available.
 
-Onboarding screen, caretaker mode, `DailyLog` dead type, and sync for the two new entities (onsets, story edits) — none of which block submission.
+## App Store Connect
+
+Use `APP-STORE-METADATA.md` as the source of truth.
+
+- [ ] App name and subtitle entered.
+- [ ] Primary category: Medical; secondary: Health & Fitness.
+- [ ] Complete Apple's current age-rating questionnaire honestly. Do not manually force a lower rating.
+- [ ] Privacy Policy URL entered and verified live.
+- [ ] Support URL entered and verified live.
+- [ ] App Privacy answer for current local-only v1: **No data collected**.
+- [ ] Description, promotional text, and keywords pasted from the metadata pack.
+- [ ] Reviewer notes pasted from the metadata pack.
+- [ ] App Review contact information entered directly in App Store Connect, not committed to GitHub.
+- [ ] Correct TestFlight build selected.
+
+## Screenshots
+
+Use test/demo information only—never real private health information.
+
+Recommended 6.9-inch portrait size: **1320 × 2868**. Apple also accepts other current 6.9-inch native sizes.
+
+Suggested sequence:
+
+1. Home with populated selected-day log
+2. Logging with start/end selector
+3. Body map with a selected region
+4. Generated Story/report
+5. History/trends
+6. PDF/export
+
+Before uploading:
+
+- [ ] 1–10 screenshots supplied.
+- [ ] No screenshot contains an alpha channel/transparency.
+- [ ] No debug/dev controls appear.
+- [ ] No real person's private health information appears.
+
+## Medical-language release check
+
+Before every App Store build, search changed user-facing copy for language that could imply diagnosis, causation, prediction, or treatment advice.
+
+Avoid claims such as:
+
+- "X caused Y"
+- "This means you have..."
+- "HealthLit detected..."
+- "You are likely to..."
+- "You should take/stop/change..."
+
+Prefer descriptive wording tied to the user's own records, such as:
+
+- "You recorded X on 4 occasions."
+- "X and Y appeared in the same 24-hour window."
+- "Severity was higher in these logged entries."
+
+## What is intentionally NOT shipping in v1
+
+- HealthLit account creation
+- Firebase cloud backup/sync
+- Advertising
+- Analytics or tracking SDKs
+- Remote crash reporting
+- Generative AI/report generation services
+
+Do not enable any of those without revisiting the privacy policy, App Privacy nutrition label, reviewer notes, and testing plan.
+
+## Final go/no-go rule
+
+Submit to App Review only when all of the following are true:
+
+1. `npm run release:check` passes.
+2. GitHub Actions **Release check** is green on the exact commit being built.
+3. Privacy/support URLs are live.
+4. The body illustration is bundled locally.
+5. The exact TestFlight production build passes the full acceptance matrix above.
+6. App Store privacy/age-rating/metadata fields match the submitted binary.
+
+If any one of those is false, do not submit yet.
