@@ -11,10 +11,9 @@ interface BodyMapProps {
 }
 
 type BodyView = 'front' | 'back';
-type HitMeta = { priority?: number };
 type Region = {
   id: string;
-  hit: HitMeta;
+  priority?: number;
   d?: string;
   ellipse?: { cx: number; cy: number; rx: number; ry: number };
 };
@@ -23,46 +22,7 @@ const VIEW_W = 260;
 const VIEW_H = 520;
 const SVG_H = 440;
 
-const FRONT_OUTLINE =
-  'M130 13 C112 13 101 27 101 49 C101 67 109 80 117 86 ' +
-  'C115 96 110 101 100 105 C86 108 69 112 56 121 C48 127 43 139 40 155 ' +
-  'C36 180 34 203 31 226 C28 246 23 264 18 281 C15 292 18 302 27 307 ' +
-  'C36 312 44 305 47 294 C52 277 56 260 60 243 C64 229 68 218 72 210 ' +
-  'C78 231 80 249 78 267 C76 284 70 301 68 319 C66 340 69 360 74 380 ' +
-  'C78 397 79 414 76 432 C73 449 70 466 70 480 C69 491 75 498 86 499 ' +
-  'C97 500 104 493 104 482 C104 467 106 453 110 439 C114 421 117 401 119 381 ' +
-  'C122 358 125 337 128 320 L130 306 L132 320 C135 337 138 358 141 381 ' +
-  'C143 401 146 421 150 439 C154 453 156 467 156 482 C156 493 163 500 174 499 ' +
-  'C185 498 191 491 190 480 C190 466 187 449 184 432 C181 414 182 397 186 380 ' +
-  'C191 360 194 340 192 319 C190 301 184 284 182 267 C180 249 182 231 188 210 ' +
-  'C192 218 196 229 200 243 C204 260 208 277 213 294 C216 305 224 312 233 307 ' +
-  'C242 302 245 292 242 281 C237 264 232 246 229 226 C226 203 224 180 220 155 ' +
-  'C217 139 212 127 204 121 C191 112 174 108 160 105 C150 101 145 96 143 86 ' +
-  'C151 80 159 67 159 49 C159 27 148 13 130 13 Z';
-
-const BACK_OUTLINE =
-  'M130 13 C111 13 100 28 100 49 C100 67 108 79 116 86 ' +
-  'C114 96 108 102 97 106 C81 109 64 115 52 125 C44 133 40 146 38 161 ' +
-  'C35 185 33 208 30 229 C27 248 22 266 18 282 C15 293 18 303 27 308 ' +
-  'C36 313 44 306 47 295 C52 279 56 262 60 245 C64 231 68 220 72 211 ' +
-  'C79 231 81 249 79 268 C77 285 71 302 69 320 C67 340 70 360 75 380 ' +
-  'C79 397 80 414 77 433 C74 451 72 467 71 480 C70 491 76 499 87 500 ' +
-  'C98 501 105 494 105 483 C105 467 107 453 111 439 C115 420 118 400 120 380 ' +
-  'C123 357 126 337 128 321 L130 306 L132 321 C134 337 137 357 140 380 ' +
-  'C142 400 145 420 149 439 C153 453 155 467 155 483 C155 494 162 501 173 500 ' +
-  'C184 499 190 491 189 480 C188 467 186 451 183 433 C180 414 181 397 185 380 ' +
-  'C190 360 193 340 191 320 C189 302 183 285 181 268 C179 249 181 231 188 211 ' +
-  'C192 220 196 231 200 245 C204 262 208 279 213 295 C216 306 224 313 233 308 ' +
-  'C242 303 245 293 242 282 C238 266 233 248 230 229 C227 208 225 185 222 161 ' +
-  'C220 146 216 133 208 125 C196 115 179 109 163 106 C152 102 146 96 144 86 ' +
-  'C152 79 160 67 160 49 C160 28 149 13 130 13 Z';
-
-const pathRegion = (id: string, d: string, priority = 8): Region => ({
-  id,
-  d,
-  hit: { priority },
-});
-
+const pathRegion = (id: string, d: string, priority = 8): Region => ({ id, d, priority });
 const ellipseRegion = (
   id: string,
   cx: number,
@@ -70,7 +30,7 @@ const ellipseRegion = (
   rx: number,
   ry: number,
   priority = 8,
-): Region => ({ id, ellipse: { cx, cy, rx, ry }, hit: { priority } });
+): Region => ({ id, ellipse: { cx, cy, rx, ry }, priority });
 
 const FRONT_REGIONS: Region[] = [
   ellipseRegion('head', 130, 49, 29, 36, 7),
@@ -138,11 +98,10 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
   const theme = useTheme();
   const [view, setView] = useState<BodyView>('front');
   const regions = view === 'front' ? FRONT_REGIONS : BACK_REGIONS;
-  const outline = view === 'front' ? FRONT_OUTLINE : BACK_OUTLINE;
   const selectedLabels = selected.map(getRegionLabel).join(', ');
 
   const orderedRegions = useMemo(
-    () => [...regions].sort((a, b) => (a.hit.priority ?? 1) - (b.hit.priority ?? 1)),
+    () => [...regions].sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1)),
     [regions],
   );
 
@@ -214,21 +173,14 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
 
       <View style={styles.diagramWrap}>
         <Svg width="100%" height={SVG_H} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
-          <Path
-            d={outline}
-            fill={theme.colors.surfaceMuted}
-            stroke={theme.colors.border}
-            strokeWidth={1.5}
-          />
-
           {orderedRegions.map((region) => {
             const isSelected = selected.includes(region.id);
             const common = {
               onPress: () => onToggle(region.id),
-              fill: isSelected ? theme.colors.primary : 'rgba(0,0,0,0.001)',
-              stroke: isSelected ? theme.colors.primaryPressed : 'transparent',
-              strokeWidth: isSelected ? 2.2 : 0,
-              opacity: isSelected ? 0.9 : 1,
+              fill: isSelected ? theme.colors.primary : theme.colors.surfaceMuted,
+              stroke: isSelected ? theme.colors.primaryPressed : theme.colors.border,
+              strokeWidth: isSelected ? 2.2 : 1.15,
+              opacity: isSelected ? 0.95 : 1,
             };
 
             if (region.ellipse) {
@@ -250,7 +202,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
       </View>
 
       <Text style={styles.hint}>
-        {view === 'front' ? 'Front view' : 'Back view'} — tap the area that applies.
+        {view === 'front' ? 'Front regions' : 'Back regions'} — tap every area that applies.
       </Text>
 
       {selected.length > 0 ? (
