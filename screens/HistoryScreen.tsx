@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { FrequencyBars } from '../components/charts/FrequencyBars';
@@ -20,8 +20,17 @@ import { dateKeyLocal, formatDayLabel } from '../utils/entryStats';
 import { buildDailySeries, buildSymptomFrequency } from '../utils/trendData';
 import { useTheme } from '../hooks/useTheme';
 
-const RANGE_OPTIONS = [{ days: 7, label: '7 days' }, { days: 30, label: '30 days' }, { days: 90, label: '90 days' }] as const;
-interface DayGroup { dateKey: string; entries: SymptomEntry[]; }
+const RANGE_OPTIONS = [
+  { days: 7, label: '7 days' },
+  { days: 30, label: '30 days' },
+  { days: 90, label: '90 days' },
+] as const;
+
+interface DayGroup {
+  dateKey: string;
+  entries: SymptomEntry[];
+}
+
 function groupByDay(entries: SymptomEntry[]): DayGroup[] {
   const groups: DayGroup[] = [];
   for (const entry of entries) {
@@ -32,15 +41,24 @@ function groupByDay(entries: SymptomEntry[]): DayGroup[] {
   }
   return groups;
 }
+
 function summarizeDay(entries: SymptomEntry[]): string {
-  const avg = entries.reduce((sum, e) => sum + e.severity, 0) / entries.length;
+  const avg = entries.reduce((sum, entry) => sum + entry.severity, 0) / entries.length;
   return `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} · avg ${avg.toFixed(1)}/10`;
+}
+
+function dateFromKeyAtCurrentTime(dateKey: string): Date {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const now = new Date();
+  return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), 0, 0);
 }
 
 export default function HistoryScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ date?: string }>();
   const entries = useLogStore((state) => state.entries);
+  const setOccurredAt = useLogStore((state) => state.setOccurredAt);
   const medications = useMedicationStore((state) => state.medications);
   const profile = useProfileStore((state) => state.profile);
   const customSymptoms = useCustomSymptomStore((state) => state.customSymptoms);
@@ -50,37 +68,152 @@ export default function HistoryScreen() {
   const [exportFailed, setExportFailed] = useState(false);
 
   const series = useMemo(() => buildDailySeries(entries, rangeDays), [entries, rangeDays]);
-  const frequency = useMemo(() => buildSymptomFrequency(entries, rangeDays, customSymptoms), [entries, rangeDays, customSymptoms]);
-  // Charts/report use the selected range; the actual history remains
-  // complete so old records never become unreachable after 30 days.
+  const frequency = useMemo(
+    () => buildSymptomFrequency(entries, rangeDays, customSymptoms),
+    [entries, rangeDays, customSymptoms],
+  );
   const dayGroups = useMemo(() => groupByDay(entries), [entries]);
+  const focusedDateKey = typeof params.date === 'string' ? params.date : null;
+  const focusedEntries = useMemo(
+    () => focusedDateKey ? entries.filter((entry) => dateKeyLocal(entry.loggedAt) === focusedDateKey) : [],
+    [entries, focusedDateKey],
+  );
 
   const handleExport = async () => {
-    setExporting(true); setExportMessage(null);
+    setExporting(true);
+    setExportMessage(null);
     const result = await exportReport(entries, rangeDays, medications, profile, customSymptoms);
-    setExportMessage(result.message); setExportFailed(!result.ok); setExporting(false);
+    setExportMessage(result.message);
+    setExportFailed(!result.ok);
+    setExporting(false);
+  };
+
+  const appendToFocusedDay = () => {
+    if (!focusedDateKey) return;
+    setOccurredAt(dateFromKeyAtCurrentTime(focusedDateKey));
+    router.push('/log');
   };
 
   const styles = useMemo(() => StyleSheet.create({
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
     backButton: { width: 40, height: 40, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadows.card },
-    headerTitle: { ...theme.typography.title }, rangeRow: { flexDirection: 'row', gap: theme.spacing.sm },
-    sectionCard: { gap: theme.spacing.md }, sectionTitle: { ...theme.typography.heading }, sectionCaption: { ...theme.typography.bodySecondary },
-    exportStatus: { ...theme.typography.caption, color: theme.colors.success }, exportStatusError: { color: theme.colors.danger },
-    dayGroup: { gap: theme.spacing.sm }, dayHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-    dayLabel: { ...theme.typography.overline, textTransform: 'uppercase' }, daySummary: { ...theme.typography.caption, color: theme.colors.inkMuted },
-    dayCard: { gap: theme.spacing.md }, emptyCard: { gap: theme.spacing.md }, emptyTitle: { ...theme.typography.heading }, emptyText: { ...theme.typography.bodySecondary },
+    headerTitle: { ...theme.typography.title },
+    rangeRow: { flexDirection: 'row', gap: theme.spacing.sm },
+    sectionCard: { gap: theme.spacing.md },
+    sectionTitle: { ...theme.typography.heading },
+    sectionCaption: { ...theme.typography.bodySecondary },
+    exportStatus: { ...theme.typography.caption, color: theme.colors.success },
+    exportStatusError: { color: theme.colors.danger },
+    dayGroup: { gap: theme.spacing.sm },
+    dayHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: theme.spacing.sm },
+    dayLabel: { ...theme.typography.overline, textTransform: 'uppercase' },
+    daySummary: { ...theme.typography.caption, color: theme.colors.inkMuted },
+    dayCard: { gap: theme.spacing.md },
+    emptyCard: { gap: theme.spacing.md },
+    emptyTitle: { ...theme.typography.heading },
+    emptyText: { ...theme.typography.bodySecondary },
+    focusedCard: { gap: theme.spacing.md },
+    focusedTitle: { ...theme.typography.title },
+    focusedActions: { gap: theme.spacing.sm },
   }), [theme]);
 
-  return <Screen>
-    <View style={styles.headerRow}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={12} style={styles.backButton}><Ionicons name="chevron-back" size={24} color={theme.colors.ink} /></Pressable><Text style={styles.headerTitle}>History</Text></View>
-    <View style={styles.rangeRow}>{RANGE_OPTIONS.map((option) => <Chip key={option.days} label={option.label} selected={rangeDays === option.days} onToggle={() => setRangeDays(option.days)} />)}</View>
-    {entries.length === 0 ? <Card style={styles.emptyCard}><Text style={styles.emptyTitle}>No entries yet</Text><Text style={styles.emptyText}>Once you start logging symptoms, your trends and history will appear here.</Text><Button label="Log a symptom" onPress={() => router.push('/log')} accessibilityHint="Opens the symptom logging flow" /></Card> : <>
-      <Card style={styles.sectionCard}><Text style={styles.sectionTitle}>Doctor Report</Text><Text style={styles.sectionCaption}>A clean PDF of the last {rangeDays} days — summary, symptom frequency, factors, and every entry in that range.</Text><Button label="Export PDF report" onPress={handleExport} loading={exporting} accessibilityHint="Creates a PDF report you can share with your doctor" />{exportMessage !== null && <Text style={[styles.exportStatus, exportFailed && styles.exportStatusError]} accessibilityLiveRegion="polite">{exportMessage}</Text>}</Card>
-      <Card style={styles.sectionCard}><Text style={styles.sectionTitle}>Pain Trend</Text>{series.hasData ? <TrendLineChart values={series.values} labels={series.labels} accessibilityLabel={`Severity trend over the last ${rangeDays} days`} /> : <Text style={styles.emptyText}>No entries in the last {rangeDays} days.</Text>}</Card>
-      <Card style={styles.sectionCard}><Text style={styles.sectionTitle}>Symptom Frequency</Text>{frequency.length > 0 ? <FrequencyBars data={frequency} /> : <Text style={styles.emptyText}>No entries in the last {rangeDays} days.</Text>}</Card>
-      <Text style={styles.sectionTitle}>All Entries</Text>
-      {dayGroups.map((group) => <View key={group.dateKey} style={styles.dayGroup}><View style={styles.dayHeaderRow}><Text style={styles.dayLabel}>{formatDayLabel(group.dateKey)}</Text><Text style={styles.daySummary}>{summarizeDay(group.entries)}</Text></View><Card style={styles.dayCard}>{group.entries.map((entry) => <EntryListItem key={entry.id} entry={entry} onPress={() => router.push({ pathname: '/log', params: { entryId: entry.id } })} />)}</Card></View>)}
-    </>}
-  </Screen>;
+  if (focusedDateKey) {
+    const dayLabel = formatDayLabel(focusedDateKey);
+    return (
+      <Screen>
+        <View style={styles.headerRow}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={theme.colors.ink} />
+          </Pressable>
+          <Text style={styles.headerTitle}>{dayLabel}’s Log</Text>
+        </View>
+
+        <Card style={styles.focusedCard}>
+          <Text style={styles.focusedTitle}>{dayLabel}</Text>
+          <Text style={styles.sectionCaption}>
+            {focusedEntries.length === 0 ? 'No symptoms were logged for this day.' : summarizeDay(focusedEntries)}
+          </Text>
+          {focusedEntries.map((entry) => (
+            <EntryListItem
+              key={entry.id}
+              entry={entry}
+              onPress={() => router.push({ pathname: '/log', params: { entryId: entry.id } })}
+            />
+          ))}
+          <View style={styles.focusedActions}>
+            <Button
+              label={focusedEntries.length > 0 ? `Add another entry to ${dayLabel}` : `Log symptoms for ${dayLabel}`}
+              onPress={appendToFocusedDay}
+              accessibilityHint={`Starts a new symptom entry for ${dayLabel}`}
+            />
+            <Button label="View full history" variant="secondary" onPress={() => router.replace('/history')} />
+          </View>
+        </Card>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen>
+      <View style={styles.headerRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={24} color={theme.colors.ink} />
+        </Pressable>
+        <Text style={styles.headerTitle}>History</Text>
+      </View>
+
+      <View style={styles.rangeRow}>
+        {RANGE_OPTIONS.map((option) => (
+          <Chip key={option.days} label={option.label} selected={rangeDays === option.days} onToggle={() => setRangeDays(option.days)} />
+        ))}
+      </View>
+
+      {entries.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No entries yet</Text>
+          <Text style={styles.emptyText}>Once you start logging symptoms, your trends and history will appear here.</Text>
+          <Button label="Log a symptom" onPress={() => router.push('/log')} accessibilityHint="Opens the symptom logging flow" />
+        </Card>
+      ) : (
+        <>
+          <Card style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Doctor Report</Text>
+            <Text style={styles.sectionCaption}>A clean PDF of the last {rangeDays} days — summary, symptom frequency, factors, and every entry in that range.</Text>
+            <Button label="Export PDF report" onPress={handleExport} loading={exporting} accessibilityHint="Creates a PDF report you can share with your doctor" />
+            {exportMessage !== null && <Text style={[styles.exportStatus, exportFailed && styles.exportStatusError]} accessibilityLiveRegion="polite">{exportMessage}</Text>}
+          </Card>
+
+          <Card style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Pain Trend</Text>
+            {series.hasData ? <TrendLineChart values={series.values} labels={series.labels} accessibilityLabel={`Severity trend over the last ${rangeDays} days`} /> : <Text style={styles.emptyText}>No entries in the last {rangeDays} days.</Text>}
+          </Card>
+
+          <Card style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Symptom Frequency</Text>
+            {frequency.length > 0 ? <FrequencyBars data={frequency} /> : <Text style={styles.emptyText}>No entries in the last {rangeDays} days.</Text>}
+          </Card>
+
+          <Text style={styles.sectionTitle}>All Entries</Text>
+          {dayGroups.map((group) => (
+            <View key={group.dateKey} style={styles.dayGroup}>
+              <View style={styles.dayHeaderRow}>
+                <Text style={styles.dayLabel}>{formatDayLabel(group.dateKey)}</Text>
+                <Text style={styles.daySummary}>{summarizeDay(group.entries)}</Text>
+              </View>
+              <Card style={styles.dayCard}>
+                {group.entries.map((entry) => (
+                  <EntryListItem key={entry.id} entry={entry} onPress={() => router.push({ pathname: '/log', params: { entryId: entry.id } })} />
+                ))}
+                <Button
+                  label={`View ${formatDayLabel(group.dateKey)} log`}
+                  variant="secondary"
+                  onPress={() => router.push({ pathname: '/history', params: { date: group.dateKey } })}
+                />
+              </Card>
+            </View>
+          ))}
+        </>
+      )}
+    </Screen>
+  );
 }
