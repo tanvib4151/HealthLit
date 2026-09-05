@@ -10,7 +10,7 @@ HealthLit does not sell personal information, show advertising, use tracking tec
 
 ## Who we are
 
-HealthLit is provided by the HealthLit development team. For privacy or support questions, contact **support@healthlit.app**.
+HealthLit is provided by the HealthLit development team. For privacy or support questions, contact **healthlithub@gmail.com**.
 
 ## Information you enter
 
@@ -56,7 +56,7 @@ Because the current App Store release does not create HealthLit accounts or uplo
 
 ## Your choices and rights
 
-You control what information you enter into HealthLit and what you choose to export or share. Depending on where you live, privacy law may provide additional rights. For questions about the current release, contact **support@healthlit.app**.
+You control what information you enter into HealthLit and what you choose to export or share. Depending on where you live, privacy law may provide additional rights. For questions about the current release, contact **healthlithub@gmail.com**.
 
 ## Children
 
@@ -72,4 +72,4 @@ If HealthLit changes how it handles data, this policy will be updated before the
 
 ## Contact
 
-**support@healthlit.app**
+**healthlithub@gmail.com**
