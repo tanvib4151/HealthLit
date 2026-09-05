@@ -1,0 +1,40 @@
+name: Vendor body assets
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vendor-body-assets.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download verified CC0 body figures
+        run: |
+          mkdir -p assets/body
+          curl --fail --location --retry 3 \
+            'https://upload.wikimedia.org/wikipedia/commons/2/2c/Human_silhouette_gender_neutral_front.svg' \
+            --output assets/body/body-front.svg
+          curl --fail --location --retry 3 \
+            'https://upload.wikimedia.org/wikipedia/commons/8/85/Human_silhouette_gender_neutral_back.svg' \
+            --output assets/body/body-back.svg
+          test -s assets/body/body-front.svg
+          test -s assets/body/body-back.svg
+
+      - name: Commit vendored assets
+        run: |
+          if git diff --quiet -- assets/body && git ls-files --error-unmatch assets/body/body-front.svg assets/body/body-back.svg >/dev/null 2>&1; then
+            echo 'Body assets already present.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/body/body-front.svg assets/body/body-back.svg
+          git commit -m 'Vendor CC0 body map artwork'
+          git push
