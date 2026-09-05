@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Ellipse, Rect, SvgUri } from 'react-native-svg';
+import { SvgUri } from 'react-native-svg';
 
 import { getRegionLabel } from '../../utils/bodyRegions';
 import { useTheme } from '../../hooks/useTheme';
@@ -163,12 +163,16 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
           borderRadius: theme.radius.xl,
           overflow: 'hidden',
         },
-        visualLayer: {
-          ...StyleSheet.absoluteFillObject,
-        },
         hitTarget: {
           position: 'absolute',
           backgroundColor: 'transparent',
+          borderWidth: 0,
+        },
+        hitTargetSelected: {
+          backgroundColor: theme.colors.primarySoft,
+          borderColor: theme.colors.primary,
+          borderWidth: 2,
+          opacity: 0.72,
         },
         hint: { ...theme.typography.caption, textAlign: 'center' },
         selectedText: {
@@ -214,45 +218,6 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
       >
         <SvgUri width="100%" height="100%" uri={asset.uri} pointerEvents="none" />
 
-        <Svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${asset.width} ${asset.height}`}
-          style={styles.visualLayer}
-          pointerEvents="none"
-        >
-          {orderedZones.map((zone) => {
-            if (!selected.includes(zone.id)) return null;
-            const common = {
-              fill: theme.colors.primary,
-              fillOpacity: 0.3,
-              stroke: theme.colors.primary,
-              strokeWidth: 4,
-            };
-            return zone.kind === 'ellipse' ? (
-              <Ellipse
-                key={`selected-${zone.id}`}
-                cx={zone.cx}
-                cy={zone.cy}
-                rx={zone.rx}
-                ry={zone.ry}
-                {...common}
-              />
-            ) : (
-              <Rect
-                key={`selected-${zone.id}`}
-                x={zone.x}
-                y={zone.y}
-                width={zone.w}
-                height={zone.h}
-                rx={zone.r ?? 0}
-                ry={zone.r ?? 0}
-                {...common}
-              />
-            );
-          })}
-        </Svg>
-
         {orderedZones.map((zone) => {
           const isSelected = selected.includes(zone.id);
           return (
@@ -263,7 +228,11 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
               accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`${getRegionLabel(zone.id)}${isSelected ? ', selected' : ''}`}
               accessibilityHint={isSelected ? 'Double tap to remove this area' : 'Double tap to select this area'}
-              style={[styles.hitTarget, zoneBox(zone, scale)]}
+              style={[
+                styles.hitTarget,
+                zoneBox(zone, scale),
+                isSelected && styles.hitTargetSelected,
+              ]}
             />
           );
         })}
