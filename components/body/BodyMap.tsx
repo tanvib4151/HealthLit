@@ -115,6 +115,31 @@ function zoneBox(zone: Zone, scale: number) {
   };
 }
 
+function selectionOutline(zone: Zone) {
+  // The interaction zone remains generous, but the visible outline is
+  // inset well inside it so it never hangs off the professional figure.
+  // This keeps the artwork clean while still showing exactly which area
+  // was selected.
+  if (zone.kind === 'ellipse') {
+    return {
+      left: '24%' as const,
+      top: '24%' as const,
+      right: '24%' as const,
+      bottom: '24%' as const,
+      borderRadius: 999,
+    };
+  }
+
+  const verticalInset = zone.h > zone.w * 1.8 ? '18%' : '22%';
+  return {
+    left: '20%' as const,
+    right: '20%' as const,
+    top: verticalInset as any,
+    bottom: verticalInset as any,
+    borderRadius: 999,
+  };
+}
+
 export function BodyMap({ selected, onToggle }: BodyMapProps) {
   const theme = useTheme();
   const [view, setView] = useState<BodyView>('front');
@@ -166,13 +191,24 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
         hitTarget: {
           position: 'absolute',
           backgroundColor: 'transparent',
-          borderWidth: 0,
         },
-        hitTargetSelected: {
-          backgroundColor: theme.colors.primarySoft,
+        selectedOutline: {
+          position: 'absolute',
+          borderWidth: 1.5,
           borderColor: theme.colors.primary,
-          borderWidth: 2,
-          opacity: 0.72,
+          backgroundColor: 'transparent',
+          opacity: 0.95,
+        },
+        selectedDot: {
+          position: 'absolute',
+          width: 5,
+          height: 5,
+          borderRadius: 999,
+          backgroundColor: theme.colors.primary,
+          left: '50%',
+          top: '50%',
+          marginLeft: -2.5,
+          marginTop: -2.5,
         },
         hint: { ...theme.typography.caption, textAlign: 'center' },
         selectedText: {
@@ -228,12 +264,15 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
               accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`${getRegionLabel(zone.id)}${isSelected ? ', selected' : ''}`}
               accessibilityHint={isSelected ? 'Double tap to remove this area' : 'Double tap to select this area'}
-              style={[
-                styles.hitTarget,
-                zoneBox(zone, scale),
-                isSelected && styles.hitTargetSelected,
-              ]}
-            />
+              style={[styles.hitTarget, zoneBox(zone, scale)]}
+            >
+              {isSelected && (
+                <>
+                  <View pointerEvents="none" style={[styles.selectedOutline, selectionOutline(zone)]} />
+                  <View pointerEvents="none" style={styles.selectedDot} />
+                </>
+              )}
+            </Pressable>
           );
         })}
       </View>
