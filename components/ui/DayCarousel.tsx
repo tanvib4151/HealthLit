@@ -5,21 +5,10 @@ import { dateKeyFromDate, formatRelativeDayLabel } from '../../utils/entryStats'
 import { useTheme } from '../../hooks/useTheme';
 
 const DAY_TICK_WIDTH = 76;
-
-/**
- * Default day range shown, and how much more is added each time
- * someone taps "Load earlier days".
- *
- * Not a literal infinite list — see the fuller explanation this
- * carried when it lived inside the log flow: eagerly rendering
- * thousands of animated nodes is a real cost on slower phones, so the
- * range grows on demand instead of being pre-built in full.
- */
 const INITIAL_DAYS_BACK = 90;
 const LOAD_MORE_DAYS = 180;
-const MAX_DAYS_BACK = 3650; // ten years
+const MAX_DAYS_BACK = 3650;
 
-/** "Today", "Yesterday", then weekday + short date going back further. */
 function buildRecentDayOptions(daysBack: number): { dateKey: string; label: string }[] {
   const options: { dateKey: string; label: string }[] = [];
   for (let i = 0; i < daysBack; i++) {
@@ -30,21 +19,14 @@ function buildRecentDayOptions(daysBack: number): { dateKey: string; label: stri
   return options;
 }
 
-/**
- * The scrolling day dial.
- *
- * Extracted out of the log flow so it can be used in more than one
- * place — originally it only lived inside the "When did this happen"
- * step; it now also drives the date picker on Home. Reusing this
- * component rather than copying its ~150 lines of scroll and
- * animation math a second time is what keeps the two pickers from
- * silently drifting apart the next time either one is edited.
- *
- * Fully controlled: the caller owns the selected date and passes it
- * back in via `selectedDate`/`onSelectDate`, so this component has no
- * opinion about where that date is ultimately used (a draft entry, a
- * Home-level default, anything else).
- */
+function daysBetweenTodayAnd(date: Date): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((today.getTime() - target.getTime()) / 86400000));
+}
+
 export function DayCarousel({
   selectedDate,
   onSelectDate,
@@ -57,22 +39,27 @@ export function DayCarousel({
   const theme = useTheme();
   const [containerWidth, setContainerWidth] = useState(0);
   const scrollRef = React.useRef<any>(null);
-  const [daysBack, setDaysBack] = useState(INITIAL_DAYS_BACK);
+  // Always include the controlled date instead of silently displaying
+  // index 0 when a caller supplies a date outside the default 90 days.
+  const requiredDays = Math.min(MAX_DAYS_BACK, daysBetweenTodayAnd(selectedDate) + 1);
+  const [daysBack, setDaysBack] = useState(Math.max(INITIAL_DAYS_BACK, requiredDays));
 
-  // Oldest on the left, today on the right — reads like a timeline.
+  useEffect(() => {
+    if (requiredDays > daysBack) setDaysBack(requiredDays);
+  }, [requiredDays, daysBack]);
+
   const dayOptions = useMemo(
     () => [...buildRecentDayOptions(daysBack)].reverse(),
     [daysBack],
   );
   const selectedDateKey = dateKeyFromDate(selectedDate);
-  const selectedDayIndex = Math.max(
-    0,
-    dayOptions.findIndex((option) => option.dateKey === selectedDateKey),
-  );
+  const foundIndex = dayOptions.findIndex((option) => option.dateKey === selectedDateKey);
+  const selectedDayIndex = foundIndex >= 0 ? foundIndex : Math.max(0, dayOptions.length - 1);
 
   const scrollX = React.useRef(new Animated.Value(selectedDayIndex * DAY_TICK_WIDTH)).current;
   const latestScrollX = React.useRef(selectedDayIndex * DAY_TICK_WIDTH);
   const wheelSettleTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPositioned = React.useRef(false);
 
   useEffect(() => {
     const id = scrollX.addListener(({ value }) => {
@@ -81,41 +68,55 @@ export function DayCarousel({
     return () => scrollX.removeListener(id);
   }, [scrollX]);
 
+  useEffect(() => () => {
+    if (wheelSettleTimer.current) clearTimeout(wheelSettleTimer.current);
+  }, []);
+
   const sidePadding = Math.max(0, containerWidth / 2 - DAY_TICK_WIDTH / 2);
   const maxIndex = dayOptions.length - 1;
+
+  useEffect(() => {
+    if (containerWidth <= 0 || foundIndex < 0) return;
+    // Position controlled/external changes imperatively. Keeping
+    // contentOffset on every render made React fight native momentum.
+    if (!hasPositioned.current) hasPositioned.current = true;
+    latestScrollX.current = selectedDayIndex * DAY_TICK_WIDTH;
+    scrollX.setValue(latestScrollX.current);
+    scrollRef.current?.scrollTo({ x: latestScrollX.current, animated: false });
+  }, [containerWidth, foundIndex, selectedDayIndex, scrollX]);
 
   const snapToIndex = (rawIndex: number, animated: boolean) => {
     const clamped = Math.max(0, Math.min(maxIndex, Math.round(rawIndex)));
     const [year, month, day] = dayOptions[clamped].dateKey.split('-').map(Number);
-    // Only the calendar date changes here — hour/minute on the
-    // selected date are preserved, so picking a different day never
-    // silently resets a time someone already dialled in elsewhere.
     const next = new Date(selectedDate);
     next.setFullYear(year, month - 1, day);
+    latestScrollX.current = clamped * DAY_TICK_WIDTH;
     onSelectDate(next);
-    scrollRef.current?.scrollTo({ x: clamped * DAY_TICK_WIDTH, animated });
+    if (animated) {
+      scrollRef.current?.scrollTo({ x: latestScrollX.current, animated: true });
+    }
   };
 
-  /**
-   * Grows the range backward and keeps the currently selected day
-   * fixed on screen. See the log flow's original implementation notes
-   * on why this is a discrete, tap-triggered correction rather than a
-   * reactive one during a live scroll gesture.
-   */
   const loadEarlierDays = () => {
     const added = Math.min(LOAD_MORE_DAYS, MAX_DAYS_BACK - daysBack);
     if (added <= 0) return;
     const shiftedIndex = selectedDayIndex + added;
     setDaysBack((current) => current + added);
     requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ x: shiftedIndex * DAY_TICK_WIDTH, animated: false });
+      const x = shiftedIndex * DAY_TICK_WIDTH;
+      latestScrollX.current = x;
+      scrollX.setValue(x);
+      scrollRef.current?.scrollTo({ x, animated: false });
     });
   };
 
   const canLoadEarlier = daysBack < MAX_DAYS_BACK;
 
   const handleScrollSettle = () => {
-    snapToIndex(latestScrollX.current / DAY_TICK_WIDTH, true);
+    // snapToInterval has already physically snapped the ScrollView.
+    // Only commit state here; an animated second scroll caused bounce
+    // loops at the oldest/newest edges on iOS.
+    snapToIndex(latestScrollX.current / DAY_TICK_WIDTH, false);
   };
 
   const handleWheel = (event: any) => {
@@ -123,75 +124,31 @@ export function DayCarousel({
     event.preventDefault?.();
     const delta = event.deltaY ?? 0;
     const nextX = Math.max(0, Math.min(maxIndex * DAY_TICK_WIDTH, latestScrollX.current + delta));
+    latestScrollX.current = nextX;
     scrollRef.current?.scrollTo({ x: nextX, animated: false });
     if (wheelSettleTimer.current) clearTimeout(wheelSettleTimer.current);
-    wheelSettleTimer.current = setTimeout(() => handleScrollSettle(), 120);
+    wheelSettleTimer.current = setTimeout(handleScrollSettle, 120);
   };
 
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        carouselCard: {
-          borderRadius: theme.radius.xl,
-          backgroundColor: theme.colors.surfaceMuted,
-          paddingVertical: theme.spacing.lg,
-          overflow: 'hidden' as const,
-        },
-        centerMarker: {
-          position: 'absolute' as const,
-          top: 0,
-          bottom: 0,
-          left: '50%' as const,
-          width: 3,
-          marginLeft: -1.5,
-          borderRadius: 2,
-          backgroundColor: theme.colors.primary,
-        },
-        tick: {
-          width: DAY_TICK_WIDTH,
-          alignItems: 'center' as const,
-          justifyContent: 'center' as const,
-        },
-        // Filled pill on the selected tick rather than a text-color
-        // change alone — color-only differentiation was low contrast
-        // against the muted card and weaker for anyone with reduced
-        // color vision. See the original fix notes in the log flow.
-        tickPill: {
-          paddingHorizontal: theme.spacing.md,
-          paddingVertical: 6,
-          borderRadius: theme.radius.pill,
-        },
-        tickPillSelected: {
-          backgroundColor: theme.colors.primary,
-        },
-        tickLabel: {
-          fontFamily: theme.fonts.semibold,
-          color: theme.colors.ink,
-          fontSize: 14,
-        },
-        tickLabelSelected: {
-          color: theme.colors.onPrimary,
-        },
-        loadEarlierRow: {
-          alignItems: 'center' as const,
-          paddingVertical: theme.spacing.sm,
-        },
-        loadEarlierText: {
-          ...theme.typography.caption,
-          color: theme.colors.primary,
-          fontFamily: theme.fonts.semibold,
-        },
-      }),
-    [theme],
-  );
+    () => StyleSheet.create({
+      carouselCard: { borderRadius: theme.radius.xl, backgroundColor: theme.colors.surfaceMuted, paddingVertical: theme.spacing.lg, overflow: 'hidden' as const },
+      centerMarker: { position: 'absolute' as const, top: 0, bottom: 0, left: '50%' as const, width: 3, marginLeft: -1.5, borderRadius: 2, backgroundColor: theme.colors.primary },
+      tick: { width: DAY_TICK_WIDTH, alignItems: 'center' as const, justifyContent: 'center' as const },
+      tickPill: { paddingHorizontal: theme.spacing.md, paddingVertical: 6, borderRadius: theme.radius.pill },
+      tickPillSelected: { backgroundColor: theme.colors.primary },
+      tickLabel: { fontFamily: theme.fonts.semibold, color: theme.colors.ink, fontSize: 14 },
+      tickLabelSelected: { color: theme.colors.onPrimary },
+      loadEarlierRow: { alignItems: 'center' as const, paddingVertical: theme.spacing.sm },
+      loadEarlierText: { ...theme.typography.caption, color: theme.colors.primary, fontFamily: theme.fonts.semibold },
+    }), [theme]);
 
   return (
     <View>
       <View
         style={styles.carouselCard}
         onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-        // @ts-expect-error onWheel is a standard web prop that react-native-web
-        // forwards; harmlessly ignored on native.
+        // @ts-expect-error react-native-web forwards onWheel.
         onWheel={handleWheel}
         accessibilityRole="adjustable"
         accessibilityLabel={`${accessibilityLabelPrefix}, ${dayOptions[selectedDayIndex]?.label ?? ''}`}
@@ -201,15 +158,13 @@ export function DayCarousel({
           <Animated.ScrollView
             ref={scrollRef}
             horizontal
+            bounces={false}
+            overScrollMode="never"
             showsHorizontalScrollIndicator={false}
             snapToInterval={DAY_TICK_WIDTH}
             decelerationRate="fast"
             contentContainerStyle={{ paddingHorizontal: sidePadding }}
-            contentOffset={{ x: selectedDayIndex * DAY_TICK_WIDTH, y: 0 }}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: false },
-            )}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
             scrollEventThrottle={16}
             onMomentumScrollEnd={handleScrollSettle}
             onScrollEndDrag={(e) => {
@@ -217,44 +172,13 @@ export function DayCarousel({
             }}
           >
             {dayOptions.map((option, index) => {
-              const distance = scrollX.interpolate({
-                inputRange: [
-                  (index - 1) * DAY_TICK_WIDTH,
-                  index * DAY_TICK_WIDTH,
-                  (index + 1) * DAY_TICK_WIDTH,
-                ],
-                outputRange: [0.35, 1, 0.35],
-                extrapolate: 'clamp',
-              });
-              const scale = scrollX.interpolate({
-                inputRange: [
-                  (index - 1) * DAY_TICK_WIDTH,
-                  index * DAY_TICK_WIDTH,
-                  (index + 1) * DAY_TICK_WIDTH,
-                ],
-                outputRange: [0.85, 1.08, 0.85],
-                extrapolate: 'clamp',
-              });
+              const distance = scrollX.interpolate({ inputRange: [(index - 1) * DAY_TICK_WIDTH, index * DAY_TICK_WIDTH, (index + 1) * DAY_TICK_WIDTH], outputRange: [0.35, 1, 0.35], extrapolate: 'clamp' });
+              const scale = scrollX.interpolate({ inputRange: [(index - 1) * DAY_TICK_WIDTH, index * DAY_TICK_WIDTH, (index + 1) * DAY_TICK_WIDTH], outputRange: [0.85, 1.08, 0.85], extrapolate: 'clamp' });
               const isSelected = index === selectedDayIndex;
-
               return (
-                <Pressable
-                  key={option.dateKey}
-                  onPress={() => snapToIndex(index, true)}
-                  style={styles.tick}
-                >
-                  <Animated.View
-                    style={[
-                      styles.tickPill,
-                      isSelected && styles.tickPillSelected,
-                      { opacity: distance, transform: [{ scale }] },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.tickLabel, isSelected && styles.tickLabelSelected]}
-                    >
-                      {option.label}
-                    </Text>
+                <Pressable key={option.dateKey} onPress={() => snapToIndex(index, true)} style={styles.tick}>
+                  <Animated.View style={[styles.tickPill, isSelected && styles.tickPillSelected, { opacity: distance, transform: [{ scale }] }]}>
+                    <Text style={[styles.tickLabel, isSelected && styles.tickLabelSelected]}>{option.label}</Text>
                   </Animated.View>
                 </Pressable>
               );
@@ -263,13 +187,7 @@ export function DayCarousel({
         )}
       </View>
       {canLoadEarlier && (
-        <Pressable
-          onPress={loadEarlierDays}
-          hitSlop={10}
-          style={styles.loadEarlierRow}
-          accessibilityRole="button"
-          accessibilityLabel="Load earlier days"
-        >
+        <Pressable onPress={loadEarlierDays} hitSlop={10} style={styles.loadEarlierRow} accessibilityRole="button" accessibilityLabel="Load earlier days">
           <Text style={styles.loadEarlierText}>Need to go back further? Load earlier days</Text>
         </Pressable>
       )}
