@@ -72,7 +72,7 @@ export default function ProfileScreen() {
           account flow as a rejection under Guideline 2.1. */}
       {isFirebaseConfigured && <BackupSyncCard />}
       <OnsetEditor />
-      <DeveloperToolsCard />
+      {__DEV__ && <DeveloperToolsCard />}
     </Screen>
   );
 }
@@ -150,13 +150,9 @@ function DeveloperToolsCard() {
     clearAllMedications();
     clearAllCustomSymptoms();
     clearProfile();
-    // Story section edits are user-written health text too — leaving
-    // them behind after "Clear All Data" would be a quiet lie.
     clearAllStoryOverrides();
     clearAllOnsets();
     clearAllCheckIns();
-    // Also cancels any scheduled reminder — a notification firing
-    // after someone wiped their data would be alarming.
     clearPrefs();
     setConfirmingClear(false);
   };
@@ -199,17 +195,9 @@ function AppearanceCard() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        card: {
-          gap: theme.spacing.md,
-        },
-        title: {
-          ...theme.typography.body,
-          fontFamily: theme.fonts.semibold,
-        },
-        optionRow: {
-          flexDirection: 'row',
-          gap: theme.spacing.sm,
-        },
+        card: { gap: theme.spacing.md },
+        title: { ...theme.typography.body, fontFamily: theme.fonts.semibold },
+        optionRow: { flexDirection: 'row', gap: theme.spacing.sm },
       }),
     [theme],
   );
@@ -249,8 +237,6 @@ function BackupSyncCard() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
-  // Two-tap confirmation, matching Clear All Data below. A single tap
-  // on an irreversible action is how people lose things.
   const handleDeleteAccount = async () => {
     if (!confirmingDelete) {
       setConfirmingDelete(true);
@@ -271,37 +257,13 @@ function BackupSyncCard() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        card: {
-          gap: theme.spacing.md,
-        },
-        syncHeader: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: theme.spacing.md,
-        },
-        syncIcon: {
-          width: 40,
-          height: 40,
-          borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.primarySoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        deleteWarning: {
-          ...theme.typography.caption,
-          color: theme.colors.danger,
-        },
-        syncHeaderText: {
-          flex: 1,
-          gap: 2,
-        },
-        syncTitle: {
-          ...theme.typography.body,
-          fontFamily: theme.fonts.semibold,
-        },
-        syncSubtitle: {
-          ...theme.typography.caption,
-        },
+        card: { gap: theme.spacing.md },
+        syncHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
+        syncIcon: { width: 40, height: 40, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+        deleteWarning: { ...theme.typography.caption, color: theme.colors.danger },
+        syncHeaderText: { flex: 1, gap: 2 },
+        syncTitle: { ...theme.typography.body, fontFamily: theme.fonts.semibold },
+        syncSubtitle: { ...theme.typography.caption },
       }),
     [theme],
   );
@@ -342,12 +304,6 @@ function BackupSyncCard() {
         </View>
       </View>
       <Button label="Sign out" variant="secondary" onPress={() => void signOutUser()} />
-
-      {/* App Store Guideline 5.1.1(v): an app that offers account
-          creation must offer account deletion inside the app. It is
-          also what the privacy policy promises, and the only way a
-          user can actually exercise a deletion right without emailing
-          a stranger about their health records. */}
       <Button
         label={confirmingDelete ? 'Tap again to permanently delete' : 'Delete account'}
         variant="ghost"
@@ -369,54 +325,19 @@ function BackupSyncCard() {
 
 /* ------------------------------- Summary ------------------------------ */
 
-function ProfileSummary({
-  profile,
-  onEdit,
-}: {
-  profile: UserProfile;
-  onEdit: () => void;
-}) {
+function ProfileSummary({ profile, onEdit }: { profile: UserProfile; onEdit: () => void }) {
   const theme = useTheme();
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        card: {
-          gap: theme.spacing.md,
-        },
-        summaryHeader: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: theme.spacing.md,
-        },
-        avatarCircle: {
-          width: 48,
-          height: 48,
-          borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.primarySoft,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        summaryHeaderText: {
-          flex: 1,
-          gap: 2,
-        },
-        name: {
-          ...theme.typography.heading,
-        },
-        condition: {
-          ...theme.typography.bodySecondary,
-          color: theme.colors.primary,
-        },
-        divider: {
-          height: 1,
-          backgroundColor: theme.colors.border,
-        },
-        pdfNote: {
-          ...theme.typography.caption,
-        },
-      }),
-    [theme],
-  );
+    () => StyleSheet.create({
+      card: { gap: theme.spacing.md },
+      summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md },
+      avatarCircle: { width: 48, height: 48, borderRadius: theme.radius.pill, backgroundColor: theme.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+      summaryHeaderText: { flex: 1, gap: 2 },
+      name: { ...theme.typography.heading },
+      condition: { ...theme.typography.bodySecondary, color: theme.colors.primary },
+      divider: { height: 1, backgroundColor: theme.colors.border },
+      pdfNote: { ...theme.typography.caption },
+    }), [theme]);
 
   return (
     <Card style={styles.card}>
@@ -426,23 +347,14 @@ function ProfileSummary({
         </View>
         <View style={styles.summaryHeaderText}>
           <Text style={styles.name}>{profile.displayName}</Text>
-          {profile.condition ? (
-            <Text style={styles.condition}>{profile.condition}</Text>
-          ) : null}
+          {profile.condition ? <Text style={styles.condition}>{profile.condition}</Text> : null}
         </View>
       </View>
-
       <View style={styles.divider} />
-
       <SummaryRow label="Date of birth" value={profile.dateOfBirth} />
       <SummaryRow label="Primary doctor" value={profile.primaryDoctor} />
       <SummaryRow label="Emergency contact" value={profile.emergencyContact} />
-
-      <Text style={styles.pdfNote}>
-        This information appears on the header of your exported doctor
-        reports.
-      </Text>
-
+      <Text style={styles.pdfNote}>This information appears on the header of your exported doctor reports.</Text>
       <Button label="Edit profile" variant="secondary" onPress={onEdit} />
     </Card>
   );
@@ -451,26 +363,11 @@ function ProfileSummary({
 function SummaryRow({ label, value }: { label: string; value: string | null }) {
   const theme = useTheme();
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        summaryRow: {
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          gap: theme.spacing.md,
-        },
-        summaryLabel: {
-          ...theme.typography.bodySecondary,
-        },
-        summaryValue: {
-          ...theme.typography.body,
-          fontFamily: theme.fonts.semibold,
-          flexShrink: 1,
-          textAlign: 'right' as const,
-        },
-      }),
-    [theme],
-  );
-
+    () => StyleSheet.create({
+      summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md },
+      summaryLabel: { ...theme.typography.bodySecondary },
+      summaryValue: { ...theme.typography.body, fontFamily: theme.fonts.semibold, flexShrink: 1, textAlign: 'right' as const },
+    }), [theme]);
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -495,33 +392,16 @@ function ProfileForm({ initial, onSaved, onCancel }: ProfileFormProps) {
   const [condition, setCondition] = useState(initial?.condition ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(initial?.dateOfBirth ?? '');
   const [primaryDoctor, setPrimaryDoctor] = useState(initial?.primaryDoctor ?? '');
-  const [emergencyContact, setEmergencyContact] = useState(
-    initial?.emergencyContact ?? '',
-  );
+  const [emergencyContact, setEmergencyContact] = useState(initial?.emergencyContact ?? '');
 
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        formScroll: {
-          gap: theme.spacing.md,
-        },
-        card: {
-          gap: theme.spacing.md,
-        },
-        formIntro: {
-          ...theme.typography.bodySecondary,
-        },
-        formButtons: {
-          flexDirection: 'row',
-          gap: theme.spacing.md,
-          marginTop: theme.spacing.sm,
-        },
-        formButton: {
-          flex: 1,
-        },
-      }),
-    [theme],
-  );
+    () => StyleSheet.create({
+      formScroll: { gap: theme.spacing.md },
+      card: { gap: theme.spacing.md },
+      formIntro: { ...theme.typography.bodySecondary },
+      formButtons: { flexDirection: 'row', gap: theme.spacing.md, marginTop: theme.spacing.sm },
+      formButton: { flex: 1 },
+    }), [theme]);
 
   const canSave = displayName.trim() !== '';
 
@@ -542,115 +422,36 @@ function ProfileForm({ initial, onSaved, onCancel }: ProfileFormProps) {
       <Card style={styles.card}>
         {initial === null ? (
           <Text style={styles.formIntro}>
-            This helps your doctor reports feel personal — and takes about
-            30 seconds.
+            This helps your doctor reports feel personal — and takes about 30 seconds.
           </Text>
         ) : null}
-
-        <FormField
-          label="Name"
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder="Your name"
-          required
-        />
-        <FormField
-          label="Condition"
-          value={condition}
-          onChangeText={setCondition}
-          placeholder="e.g. Fibromyalgia, Migraine, Rheumatoid arthritis"
-        />
-        <FormField
-          label="Date of birth"
-          value={dateOfBirth}
-          onChangeText={setDateOfBirth}
-          placeholder="e.g. 03/14/1990"
-        />
-        <FormField
-          label="Primary doctor"
-          value={primaryDoctor}
-          onChangeText={setPrimaryDoctor}
-          placeholder="e.g. Dr. Aisha Khan"
-        />
-        <FormField
-          label="Emergency contact"
-          value={emergencyContact}
-          onChangeText={setEmergencyContact}
-          placeholder="e.g. Sam Rivera · (555) 555-1234"
-        />
-
+        <FormField label="Name" value={displayName} onChangeText={setDisplayName} placeholder="Your name" required />
+        <FormField label="Condition" value={condition} onChangeText={setCondition} placeholder="e.g. Fibromyalgia, Migraine, Rheumatoid arthritis" />
+        <FormField label="Date of birth" value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="e.g. 03/14/1990" />
+        <FormField label="Primary doctor" value={primaryDoctor} onChangeText={setPrimaryDoctor} placeholder="e.g. Dr. Aisha Khan" />
+        <FormField label="Emergency contact" value={emergencyContact} onChangeText={setEmergencyContact} placeholder="e.g. Sam Rivera · (555) 555-1234" />
         <View style={styles.formButtons}>
-          {onCancel ? (
-            <Button
-              label="Cancel"
-              variant="secondary"
-              onPress={onCancel}
-              style={styles.formButton}
-            />
-          ) : null}
-          <Button
-            label="Save"
-            onPress={handleSave}
-            disabled={!canSave}
-            style={styles.formButton}
-          />
+          {onCancel ? <Button label="Cancel" variant="secondary" onPress={onCancel} style={styles.formButton} /> : null}
+          <Button label="Save" onPress={handleSave} disabled={!canSave} style={styles.formButton} />
         </View>
       </Card>
     </ScrollView>
   );
 }
 
-function FormField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder: string;
-  required?: boolean;
-}) {
+function FormField({ label, value, onChangeText, placeholder, required }: { label: string; value: string; onChangeText: (text: string) => void; placeholder: string; required?: boolean }) {
   const theme = useTheme();
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        field: {
-          gap: theme.spacing.xs,
-        },
-        fieldLabel: {
-          ...theme.typography.caption,
-          fontFamily: theme.fonts.semibold,
-        },
-        input: {
-          ...theme.typography.body,
-          backgroundColor: theme.colors.surface,
-          borderRadius: theme.radius.lg,
-          borderWidth: 1.5,
-          borderColor: theme.colors.border,
-          padding: theme.spacing.lg,
-          minHeight: 48,
-        },
-      }),
-    [theme],
-  );
+    () => StyleSheet.create({
+      field: { gap: theme.spacing.xs },
+      fieldLabel: { ...theme.typography.caption, fontFamily: theme.fonts.semibold },
+      input: { ...theme.typography.body, backgroundColor: theme.colors.surface, borderRadius: theme.radius.lg, borderWidth: 1.5, borderColor: theme.colors.border, padding: theme.spacing.lg, minHeight: 48 },
+    }), [theme]);
 
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>
-        {label}
-        {required ? ' *' : ''}
-      </Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.inkMuted}
-        style={styles.input}
-        accessibilityLabel={label}
-      />
+      <Text style={styles.fieldLabel}>{label}{required ? ' *' : ''}</Text>
+      <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.colors.inkMuted} style={styles.input} accessibilityLabel={label} />
     </View>
   );
 }
