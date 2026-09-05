@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Ellipse, Line, Path } from 'react-native-svg';
+import Svg, { Ellipse, Path } from 'react-native-svg';
 
 import { getRegionLabel } from '../../utils/bodyRegions';
 import { useTheme } from '../../hooks/useTheme';
@@ -12,124 +12,108 @@ interface BodyMapProps {
 
 type BodyView = 'front' | 'back';
 type HitBox = { x: number; y: number; w: number; h: number; priority?: number };
-type RegionShape = {
-  id: string;
-  kind: 'path' | 'ellipse';
-  d?: string;
-  cx?: number;
-  cy?: number;
-  rx?: number;
-  ry?: number;
-  hit: HitBox;
-};
+type Region = { id: string; hit: HitBox; d?: string; ellipse?: { cx: number; cy: number; rx: number; ry: number } };
 
 const VIEW_W = 260;
 const VIEW_H = 520;
 const SVG_H = 440;
 
-/**
- * The visible body is one continuous silhouette. Selectable regions are
- * lightly outlined on top, so the figure reads as a person first and a
- * diagram second. Screen-left is always the user's left.
- */
+// Clean, continuous silhouettes. The body is intentionally neutral and
+// minimally detailed; selectable zones are invisible until selected.
 const FRONT_OUTLINE =
-  'M130 12 C112 12 101 26 101 48 C101 67 109 79 116 84 ' +
-  'C114 94 109 100 99 104 C85 106 68 111 56 120 C48 126 43 137 40 153 ' +
-  'C36 177 34 202 30 226 C27 244 22 263 17 279 C14 290 18 302 27 306 ' +
-  'C35 310 43 304 46 293 C51 276 55 259 59 242 C62 231 66 220 69 212 ' +
-  'C75 229 78 247 76 264 C74 279 69 295 66 313 C63 335 65 356 71 377 ' +
-  'C75 393 76 409 73 428 C71 445 68 462 67 478 C66 489 72 496 83 497 ' +
-  'C94 498 101 491 101 481 C101 465 103 451 107 437 C111 420 114 401 116 380 ' +
-  'C119 358 121 338 124 322 C126 312 128 305 130 301 ' +
-  'C132 305 134 312 136 322 C139 338 141 358 144 380 C146 401 149 420 153 437 ' +
-  'C157 451 159 465 159 481 C159 491 166 498 177 497 C188 496 194 489 193 478 ' +
-  'C192 462 189 445 187 428 C184 409 185 393 189 377 C195 356 197 335 194 313 ' +
-  'C191 295 186 279 184 264 C182 247 185 229 191 212 C194 220 198 231 201 242 ' +
-  'C205 259 209 276 214 293 C217 304 225 310 233 306 C242 302 246 290 243 279 ' +
-  'C238 263 233 244 230 226 C226 202 224 177 220 153 C217 137 212 126 204 120 ' +
-  'C192 111 175 106 161 104 C151 100 146 94 144 84 C151 79 159 67 159 48 ' +
-  'C159 26 148 12 130 12 Z';
+  'M130 13 C112 13 101 27 101 49 C101 67 109 80 117 86 ' +
+  'C115 96 110 101 100 105 C86 108 69 112 56 121 C48 127 43 139 40 155 ' +
+  'C36 180 34 203 31 226 C28 246 23 264 18 281 C15 292 18 302 27 307 ' +
+  'C36 312 44 305 47 294 C52 277 56 260 60 243 C64 229 68 218 72 210 ' +
+  'C78 231 80 249 78 267 C76 284 70 301 68 319 C66 340 69 360 74 380 ' +
+  'C78 397 79 414 76 432 C73 449 70 466 70 480 C69 491 75 498 86 499 ' +
+  'C97 500 104 493 104 482 C104 467 106 453 110 439 C114 421 117 401 119 381 ' +
+  'C122 358 125 337 128 320 L130 306 L132 320 C135 337 138 358 141 381 ' +
+  'C143 401 146 421 150 439 C154 453 156 467 156 482 C156 493 163 500 174 499 ' +
+  'C185 498 191 491 190 480 C190 466 187 449 184 432 C181 414 182 397 186 380 ' +
+  'C191 360 194 340 192 319 C190 301 184 284 182 267 C180 249 182 231 188 210 ' +
+  'C192 218 196 229 200 243 C204 260 208 277 213 294 C216 305 224 312 233 307 ' +
+  'C242 302 245 292 242 281 C237 264 232 246 229 226 C226 203 224 180 220 155 ' +
+  'C217 139 212 127 204 121 C191 112 174 108 160 105 C150 101 145 96 143 86 ' +
+  'C151 80 159 67 159 49 C159 27 148 13 130 13 Z';
 
 const BACK_OUTLINE =
-  'M130 11 C111 11 100 26 100 48 C100 66 107 78 115 84 ' +
-  'C113 95 107 101 96 105 C80 108 63 114 52 124 C44 132 40 145 38 160 ' +
-  'C35 184 33 207 29 229 C26 247 21 266 17 281 C14 292 18 303 27 307 ' +
-  'C36 311 44 305 47 294 C52 278 56 261 60 244 C63 230 67 219 71 210 ' +
-  'C77 231 79 249 77 267 C75 284 69 300 67 318 C65 338 68 359 73 379 ' +
-  'C77 395 78 411 75 430 C72 448 70 465 69 479 C68 490 74 497 85 498 ' +
-  'C96 499 103 492 103 481 C103 466 105 451 109 437 C113 419 116 400 118 380 ' +
-  'C121 357 123 337 126 322 C127 313 129 306 130 302 ' +
-  'C131 306 133 313 134 322 C137 337 139 357 142 380 C144 400 147 419 151 437 ' +
-  'C155 451 157 466 157 481 C157 492 164 499 175 498 C186 497 192 490 191 479 ' +
-  'C190 465 188 448 185 430 C182 411 183 395 187 379 C192 359 195 338 193 318 ' +
-  'C191 300 185 284 183 267 C181 249 183 231 189 210 C193 219 197 230 200 244 ' +
-  'C204 261 208 278 213 294 C216 305 224 311 233 307 C242 303 246 292 243 281 ' +
-  'C239 266 234 247 231 229 C227 207 225 184 222 160 C220 145 216 132 208 124 ' +
-  'C197 114 180 108 164 105 C153 101 147 95 145 84 C153 78 160 66 160 48 ' +
-  'C160 26 149 11 130 11 Z';
+  'M130 13 C111 13 100 28 100 49 C100 67 108 79 116 86 ' +
+  'C114 96 108 102 97 106 C81 109 64 115 52 125 C44 133 40 146 38 161 ' +
+  'C35 185 33 208 30 229 C27 248 22 266 18 282 C15 293 18 303 27 308 ' +
+  'C36 313 44 306 47 295 C52 279 56 262 60 245 C64 231 68 220 72 211 ' +
+  'C79 231 81 249 79 268 C77 285 71 302 69 320 C67 340 70 360 75 380 ' +
+  'C79 397 80 414 77 433 C74 451 72 467 71 480 C70 491 76 499 87 500 ' +
+  'C98 501 105 494 105 483 C105 467 107 453 111 439 C115 420 118 400 120 380 ' +
+  'C123 357 126 337 128 321 L130 306 L132 321 C134 337 137 357 140 380 ' +
+  'C142 400 145 420 149 439 C153 453 155 467 155 483 C155 494 162 501 173 500 ' +
+  'C184 499 190 491 189 480 C188 467 186 451 183 433 C180 414 181 397 185 380 ' +
+  'C190 360 193 340 191 320 C189 302 183 285 181 268 C179 249 181 231 188 211 ' +
+  'C192 220 196 231 200 245 C204 262 208 279 213 295 C216 306 224 313 233 308 ' +
+  'C242 303 245 293 242 282 C238 266 233 248 230 229 C227 208 225 185 222 161 ' +
+  'C220 146 216 133 208 125 C196 115 179 109 163 106 C152 102 146 96 144 86 ' +
+  'C152 79 160 67 160 49 C160 28 149 13 130 13 Z';
 
-const FRONT_REGIONS: RegionShape[] = [
-  { id: 'head', kind: 'ellipse', cx: 130, cy: 47, rx: 29, ry: 36, hit: { x: 98, y: 8, w: 64, h: 80, priority: 7 } },
-  { id: 'face', kind: 'ellipse', cx: 130, cy: 52, rx: 21, ry: 27, hit: { x: 106, y: 24, w: 48, h: 58, priority: 10 } },
-  { id: 'neck', kind: 'path', d: 'M116 82 C118 94 113 101 105 106 L155 106 C147 101 142 94 144 82 Z', hit: { x: 104, y: 79, w: 52, h: 32, priority: 10 } },
-  { id: 'shoulder_left', kind: 'path', d: 'M103 105 C84 107 67 111 55 122 C49 128 45 138 43 150 C55 151 68 150 79 147 C84 129 91 115 103 108 Z', hit: { x: 41, y: 102, w: 67, h: 53, priority: 9 } },
-  { id: 'shoulder_right', kind: 'path', d: 'M157 105 C176 107 193 111 205 122 C211 128 215 138 217 150 C205 151 192 150 181 147 C176 129 169 115 157 108 Z', hit: { x: 152, y: 102, w: 67, h: 53, priority: 9 } },
-  { id: 'chest_left', kind: 'path', d: 'M92 113 C103 108 116 106 129 106 L129 168 C116 170 103 168 92 164 C87 150 84 134 84 120 Z', hit: { x: 82, y: 108, w: 49, h: 65, priority: 7 } },
-  { id: 'chest_right', kind: 'path', d: 'M131 106 C144 106 157 108 168 113 L176 120 C176 134 173 150 168 164 C157 168 144 170 131 168 Z', hit: { x: 129, y: 108, w: 49, h: 65, priority: 7 } },
-  { id: 'upper_abdomen', kind: 'path', d: 'M93 165 C105 169 117 171 130 171 C143 171 155 169 167 165 C164 184 164 198 167 210 C155 217 143 220 130 220 C117 220 105 217 93 210 C96 198 96 184 93 165 Z', hit: { x: 90, y: 162, w: 80, h: 61, priority: 7 } },
-  { id: 'lower_abdomen', kind: 'path', d: 'M93 210 C105 217 117 220 130 220 C143 220 155 217 167 210 C169 227 167 241 161 254 C151 261 141 264 130 264 C119 264 109 261 99 254 C93 241 91 227 93 210 Z', hit: { x: 90, y: 207, w: 80, h: 61, priority: 8 } },
-  { id: 'hip_left', kind: 'path', d: 'M99 252 C90 259 86 270 87 284 C94 294 106 300 121 300 L125 264 C114 263 106 259 99 252 Z', hit: { x: 84, y: 249, w: 44, h: 56, priority: 9 } },
-  { id: 'hip_right', kind: 'path', d: 'M161 252 C170 259 174 270 173 284 C166 294 154 300 139 300 L135 264 C146 263 154 259 161 252 Z', hit: { x: 132, y: 249, w: 44, h: 56, priority: 9 } },
-  { id: 'upper_arm_left', kind: 'path', d: 'M47 145 C41 164 39 184 39 201 C39 213 40 224 43 234 L59 231 C60 215 62 199 65 183 C68 168 73 155 79 146 Z', hit: { x: 35, y: 141, w: 48, h: 97, priority: 8 } },
-  { id: 'elbow_left', kind: 'ellipse', cx: 45, cy: 240, rx: 12, ry: 13, hit: { x: 31, y: 226, w: 30, h: 30, priority: 10 } },
-  { id: 'forearm_left', kind: 'path', d: 'M41 252 C38 270 34 286 30 301 C27 312 30 321 36 323 C43 325 49 319 51 310 C55 290 59 270 59 252 Z', hit: { x: 26, y: 249, w: 38, h: 80, priority: 8 } },
-  { id: 'hand_left', kind: 'path', d: 'M29 318 C21 325 18 336 22 346 C25 354 32 357 39 352 C45 348 48 338 46 325 Z', hit: { x: 17, y: 315, w: 36, h: 45, priority: 10 } },
-  { id: 'upper_arm_right', kind: 'path', d: 'M213 145 C219 164 221 184 221 201 C221 213 220 224 217 234 L201 231 C200 215 198 199 195 183 C192 168 187 155 181 146 Z', hit: { x: 177, y: 141, w: 48, h: 97, priority: 8 } },
-  { id: 'elbow_right', kind: 'ellipse', cx: 215, cy: 240, rx: 12, ry: 13, hit: { x: 199, y: 226, w: 30, h: 30, priority: 10 } },
-  { id: 'forearm_right', kind: 'path', d: 'M219 252 C222 270 226 286 230 301 C233 312 230 321 224 323 C217 325 211 319 209 310 C205 290 201 270 201 252 Z', hit: { x: 196, y: 249, w: 38, h: 80, priority: 8 } },
-  { id: 'hand_right', kind: 'path', d: 'M231 318 C239 325 242 336 238 346 C235 354 228 357 221 352 C215 348 212 338 214 325 Z', hit: { x: 207, y: 315, w: 36, h: 45, priority: 10 } },
-  { id: 'thigh_left', kind: 'path', d: 'M89 286 C84 307 84 329 87 351 C89 365 92 377 98 386 L121 381 C120 361 121 342 124 322 C126 310 126 301 123 296 C110 296 99 292 89 286 Z', hit: { x: 82, y: 282, w: 45, h: 108, priority: 7 } },
-  { id: 'knee_left', kind: 'ellipse', cx: 105, cy: 394, rx: 15, ry: 16, hit: { x: 87, y: 376, w: 37, h: 38, priority: 10 } },
-  { id: 'lower_leg_left', kind: 'path', d: 'M94 410 C93 431 90 449 87 466 L112 466 C116 448 118 429 118 410 Z', hit: { x: 84, y: 406, w: 38, h: 64, priority: 8 } },
-  { id: 'ankle_left', kind: 'path', d: 'M87 464 L112 464 L111 479 L87 479 Z', hit: { x: 82, y: 461, w: 34, h: 22, priority: 10 } },
-  { id: 'foot_left', kind: 'path', d: 'M87 477 C79 485 73 491 75 496 C77 501 84 502 94 500 L113 497 L111 477 Z', hit: { x: 71, y: 474, w: 46, h: 31, priority: 10 } },
-  { id: 'thigh_right', kind: 'path', d: 'M171 286 C176 307 176 329 173 351 C171 365 168 377 162 386 L139 381 C140 361 139 342 136 322 C134 310 134 301 137 296 C150 296 161 292 171 286 Z', hit: { x: 133, y: 282, w: 45, h: 108, priority: 7 } },
-  { id: 'knee_right', kind: 'ellipse', cx: 155, cy: 394, rx: 15, ry: 16, hit: { x: 136, y: 376, w: 37, h: 38, priority: 10 } },
-  { id: 'lower_leg_right', kind: 'path', d: 'M166 410 C167 431 170 449 173 466 L148 466 C144 448 142 429 142 410 Z', hit: { x: 138, y: 406, w: 38, h: 64, priority: 8 } },
-  { id: 'ankle_right', kind: 'path', d: 'M173 464 L148 464 L149 479 L173 479 Z', hit: { x: 144, y: 461, w: 34, h: 22, priority: 10 } },
-  { id: 'foot_right', kind: 'path', d: 'M173 477 C181 485 187 491 185 496 C183 501 176 502 166 500 L147 497 L149 477 Z', hit: { x: 143, y: 474, w: 46, h: 31, priority: 10 } },
+const FRONT_REGIONS: Region[] = [
+  { id: 'face', hit: { x: 104, y: 22, w: 52, h: 62, priority: 10 }, ellipse: { cx: 130, cy: 51, rx: 22, ry: 28 } },
+  { id: 'head', hit: { x: 98, y: 8, w: 64, h: 82, priority: 7 }, ellipse: { cx: 130, cy: 49, rx: 29, ry: 36 } },
+  { id: 'neck', hit: { x: 104, y: 80, w: 52, h: 32, priority: 10 }, d: 'M116 82 C118 94 113 102 105 106 L155 106 C147 102 142 94 144 82 Z' },
+  { id: 'shoulder_left', hit: { x: 41, y: 103, w: 67, h: 53, priority: 9 }, d: 'M103 105 C84 107 67 112 55 122 C49 129 45 139 43 151 C55 152 68 151 79 148 C84 130 91 116 103 108 Z' },
+  { id: 'shoulder_right', hit: { x: 152, y: 103, w: 67, h: 53, priority: 9 }, d: 'M157 105 C176 107 193 112 205 122 C211 129 215 139 217 151 C205 152 192 151 181 148 C176 130 169 116 157 108 Z' },
+  { id: 'chest_left', hit: { x: 82, y: 108, w: 49, h: 66, priority: 7 }, d: 'M92 113 C103 108 116 106 129 106 L129 169 C116 171 103 169 92 165 C87 151 84 135 84 121 Z' },
+  { id: 'chest_right', hit: { x: 129, y: 108, w: 49, h: 66, priority: 7 }, d: 'M131 106 C144 106 157 108 168 113 L176 121 C176 135 173 151 168 165 C157 169 144 171 131 169 Z' },
+  { id: 'upper_abdomen', hit: { x: 90, y: 162, w: 80, h: 61, priority: 7 }, d: 'M93 166 C105 170 117 172 130 172 C143 172 155 170 167 166 C164 185 164 199 167 211 C155 218 143 221 130 221 C117 221 105 218 93 211 C96 199 96 185 93 166 Z' },
+  { id: 'lower_abdomen', hit: { x: 90, y: 207, w: 80, h: 61, priority: 8 }, d: 'M93 211 C105 218 117 221 130 221 C143 221 155 218 167 211 C169 228 167 242 161 255 C151 262 141 265 130 265 C119 265 109 262 99 255 C93 242 91 228 93 211 Z' },
+  { id: 'hip_left', hit: { x: 84, y: 249, w: 44, h: 56, priority: 9 }, d: 'M99 253 C90 260 86 271 87 285 C94 295 106 301 121 301 L125 265 C114 264 106 260 99 253 Z' },
+  { id: 'hip_right', hit: { x: 132, y: 249, w: 44, h: 56, priority: 9 }, d: 'M161 253 C170 260 174 271 173 285 C166 295 154 301 139 301 L135 265 C146 264 154 260 161 253 Z' },
+  { id: 'upper_arm_left', hit: { x: 35, y: 141, w: 48, h: 98, priority: 8 }, d: 'M47 146 C41 165 39 185 39 202 C39 214 40 225 43 235 L59 232 C60 216 62 200 65 184 C68 169 73 156 79 147 Z' },
+  { id: 'elbow_left', hit: { x: 31, y: 226, w: 30, h: 31, priority: 10 }, ellipse: { cx: 45, cy: 241, rx: 12, ry: 13 } },
+  { id: 'forearm_left', hit: { x: 26, y: 249, w: 38, h: 80, priority: 8 }, d: 'M41 253 C38 271 34 287 30 302 C27 313 30 322 36 324 C43 326 49 320 51 311 C55 291 59 271 59 253 Z' },
+  { id: 'hand_left', hit: { x: 17, y: 315, w: 36, h: 45, priority: 10 }, d: 'M29 319 C21 326 18 337 22 347 C25 355 32 358 39 353 C45 349 48 339 46 326 Z' },
+  { id: 'upper_arm_right', hit: { x: 177, y: 141, w: 48, h: 98, priority: 8 }, d: 'M213 146 C219 165 221 185 221 202 C221 214 220 225 217 235 L201 232 C200 216 198 200 195 184 C192 169 187 156 181 147 Z' },
+  { id: 'elbow_right', hit: { x: 199, y: 226, w: 30, h: 31, priority: 10 }, ellipse: { cx: 215, cy: 241, rx: 12, ry: 13 } },
+  { id: 'forearm_right', hit: { x: 196, y: 249, w: 38, h: 80, priority: 8 }, d: 'M219 253 C222 271 226 287 230 302 C233 313 230 322 224 324 C217 326 211 320 209 311 C205 291 201 271 201 253 Z' },
+  { id: 'hand_right', hit: { x: 207, y: 315, w: 36, h: 45, priority: 10 }, d: 'M231 319 C239 326 242 337 238 347 C235 355 228 358 221 353 C215 349 212 339 214 326 Z' },
+  { id: 'thigh_left', hit: { x: 82, y: 282, w: 45, h: 109, priority: 7 }, d: 'M89 287 C84 308 84 330 87 352 C89 366 92 378 98 387 L121 382 C120 362 121 343 124 323 C126 311 126 302 123 297 C110 297 99 293 89 287 Z' },
+  { id: 'knee_left', hit: { x: 87, y: 376, w: 37, h: 38, priority: 10 }, ellipse: { cx: 105, cy: 395, rx: 15, ry: 16 } },
+  { id: 'lower_leg_left', hit: { x: 84, y: 406, w: 38, h: 64, priority: 8 }, d: 'M94 411 C93 432 90 450 87 467 L112 467 C116 449 118 430 118 411 Z' },
+  { id: 'ankle_left', hit: { x: 82, y: 461, w: 34, h: 22, priority: 10 }, d: 'M87 465 L112 465 L111 480 L87 480 Z' },
+  { id: 'foot_left', hit: { x: 71, y: 474, w: 46, h: 31, priority: 10 }, d: 'M87 478 C79 486 73 492 75 497 C77 502 84 503 94 501 L113 498 L111 478 Z' },
+  { id: 'thigh_right', hit: { x: 133, y: 282, w: 45, h: 109, priority: 7 }, d: 'M171 287 C176 308 176 330 173 352 C171 366 168 378 162 387 L139 382 C140 362 139 343 136 323 C134 311 134 302 137 297 C150 297 161 293 171 287 Z' },
+  { id: 'knee_right', hit: { x: 136, y: 376, w: 37, h: 38, priority: 10 }, ellipse: { cx: 155, cy: 395, rx: 15, ry: 16 } },
+  { id: 'lower_leg_right', hit: { x: 138, y: 406, w: 38, h: 64, priority: 8 }, d: 'M166 411 C167 432 170 450 173 467 L148 467 C144 449 142 430 142 411 Z' },
+  { id: 'ankle_right', hit: { x: 144, y: 461, w: 34, h: 22, priority: 10 }, d: 'M173 465 L148 465 L149 480 L173 480 Z' },
+  { id: 'foot_right', hit: { x: 143, y: 474, w: 46, h: 31, priority: 10 }, d: 'M173 478 C181 486 187 492 185 497 C183 502 176 503 166 501 L147 498 L149 478 Z' },
 ];
 
-const BACK_REGIONS: RegionShape[] = [
-  { id: 'head', kind: 'ellipse', cx: 130, cy: 46, rx: 29, ry: 35, hit: { x: 98, y: 8, w: 64, h: 78, priority: 8 } },
-  { id: 'neck', kind: 'path', d: 'M115 81 C118 94 112 101 103 107 L157 107 C148 101 142 94 145 81 Z', hit: { x: 102, y: 78, w: 56, h: 34, priority: 10 } },
-  { id: 'shoulder_left', kind: 'path', d: 'M102 105 C82 108 65 113 53 124 C47 131 43 141 42 153 C55 154 69 153 80 149 C85 130 92 115 102 108 Z', hit: { x: 39, y: 102, w: 68, h: 56, priority: 9 } },
-  { id: 'shoulder_right', kind: 'path', d: 'M158 105 C178 108 195 113 207 124 C213 131 217 141 218 153 C205 154 191 153 180 149 C175 130 168 115 158 108 Z', hit: { x: 153, y: 102, w: 68, h: 56, priority: 9 } },
-  { id: 'shoulder_blade_left', kind: 'path', d: 'M87 116 C99 110 112 108 128 108 L128 170 C116 169 104 166 94 159 C89 145 86 130 87 116 Z', hit: { x: 84, y: 111, w: 46, h: 64, priority: 8 } },
-  { id: 'shoulder_blade_right', kind: 'path', d: 'M132 108 C148 108 161 110 173 116 C174 130 171 145 166 159 C156 166 144 169 132 170 Z', hit: { x: 130, y: 111, w: 46, h: 64, priority: 8 } },
-  { id: 'mid_back', kind: 'path', d: 'M94 159 C105 166 117 169 130 169 C143 169 155 166 166 159 C164 179 164 197 167 213 C156 220 143 223 130 223 C117 223 104 220 93 213 C96 197 96 179 94 159 Z', hit: { x: 91, y: 156, w: 78, h: 70, priority: 7 } },
-  { id: 'lower_back_left', kind: 'path', d: 'M93 212 C104 219 116 222 128 223 L126 262 C114 262 104 259 96 252 C91 238 90 225 93 212 Z', hit: { x: 89, y: 209, w: 42, h: 58, priority: 8 } },
-  { id: 'lower_back_right', kind: 'path', d: 'M132 223 C144 222 156 219 167 212 C170 225 169 238 164 252 C156 259 146 262 134 262 Z', hit: { x: 129, y: 209, w: 42, h: 58, priority: 8 } },
-  { id: 'glute_left', kind: 'path', d: 'M96 251 C88 260 86 273 89 287 C97 297 108 302 126 302 L127 262 C115 262 104 259 96 251 Z', hit: { x: 85, y: 248, w: 45, h: 59, priority: 9 } },
-  { id: 'glute_right', kind: 'path', d: 'M164 251 C172 260 174 273 171 287 C163 297 152 302 134 302 L133 262 C145 262 156 259 164 251 Z', hit: { x: 130, y: 248, w: 45, h: 59, priority: 9 } },
-  { id: 'upper_arm_left', kind: 'path', d: 'M46 148 C40 166 38 186 39 203 C39 215 40 226 43 236 L59 233 C60 217 62 201 65 185 C68 170 74 157 80 149 Z', hit: { x: 34, y: 144, w: 49, h: 96, priority: 8 } },
-  { id: 'elbow_left', kind: 'ellipse', cx: 45, cy: 242, rx: 12, ry: 13, hit: { x: 31, y: 228, w: 30, h: 30, priority: 10 } },
-  { id: 'forearm_left', kind: 'path', d: 'M41 254 C38 272 34 288 30 303 C27 314 30 323 36 325 C43 327 49 321 51 312 C55 292 59 272 59 254 Z', hit: { x: 26, y: 251, w: 38, h: 80, priority: 8 } },
-  { id: 'hand_left', kind: 'path', d: 'M29 320 C21 327 18 338 22 348 C25 356 32 359 39 354 C45 350 48 340 46 327 Z', hit: { x: 17, y: 317, w: 36, h: 45, priority: 10 } },
-  { id: 'upper_arm_right', kind: 'path', d: 'M214 148 C220 166 222 186 221 203 C221 215 220 226 217 236 L201 233 C200 217 198 201 195 185 C192 170 186 157 180 149 Z', hit: { x: 177, y: 144, w: 49, h: 96, priority: 8 } },
-  { id: 'elbow_right', kind: 'ellipse', cx: 215, cy: 242, rx: 12, ry: 13, hit: { x: 199, y: 228, w: 30, h: 30, priority: 10 } },
-  { id: 'forearm_right', kind: 'path', d: 'M219 254 C222 272 226 288 230 303 C233 314 230 323 224 325 C217 327 211 321 209 312 C205 292 201 272 201 254 Z', hit: { x: 196, y: 251, w: 38, h: 80, priority: 8 } },
-  { id: 'hand_right', kind: 'path', d: 'M231 320 C239 327 242 338 238 348 C235 356 228 359 221 354 C215 350 212 340 214 327 Z', hit: { x: 207, y: 317, w: 36, h: 45, priority: 10 } },
-  { id: 'hamstring_left', kind: 'path', d: 'M90 289 C85 309 85 331 88 351 C90 366 94 378 100 387 L122 382 C121 362 122 343 125 324 C127 312 127 303 125 298 C111 298 100 294 90 289 Z', hit: { x: 83, y: 285, w: 45, h: 106, priority: 8 } },
-  { id: 'knee_left', kind: 'ellipse', cx: 106, cy: 395, rx: 15, ry: 16, hit: { x: 88, y: 377, w: 37, h: 38, priority: 10 } },
-  { id: 'calf_left', kind: 'path', d: 'M95 411 C91 430 90 447 88 465 C95 469 103 470 112 467 C116 448 119 429 118 411 Z', hit: { x: 84, y: 407, w: 38, h: 64, priority: 9 } },
-  { id: 'ankle_left', kind: 'path', d: 'M88 464 L112 464 L111 479 L88 479 Z', hit: { x: 83, y: 461, w: 34, h: 22, priority: 10 } },
-  { id: 'heel_left', kind: 'path', d: 'M88 477 C81 484 77 490 79 496 C82 501 89 502 97 499 L112 496 L111 477 Z', hit: { x: 75, y: 474, w: 41, h: 30, priority: 10 } },
-  { id: 'hamstring_right', kind: 'path', d: 'M170 289 C175 309 175 331 172 351 C170 366 166 378 160 387 L138 382 C139 362 138 343 135 324 C133 312 133 303 135 298 C149 298 160 294 170 289 Z', hit: { x: 132, y: 285, w: 45, h: 106, priority: 8 } },
-  { id: 'knee_right', kind: 'ellipse', cx: 154, cy: 395, rx: 15, ry: 16, hit: { x: 135, y: 377, w: 37, h: 38, priority: 10 } },
-  { id: 'calf_right', kind: 'path', d: 'M165 411 C169 430 170 447 172 465 C165 469 157 470 148 467 C144 448 141 429 142 411 Z', hit: { x: 138, y: 407, w: 38, h: 64, priority: 9 } },
-  { id: 'ankle_right', kind: 'path', d: 'M172 464 L148 464 L149 479 L172 479 Z', hit: { x: 144, y: 461, w: 34, h: 22, priority: 10 } },
-  { id: 'heel_right', kind: 'path', d: 'M172 477 C179 484 183 490 181 496 C178 501 171 502 163 499 L148 496 L149 477 Z', hit: { x: 144, y: 474, w: 41, h: 30, priority: 10 } },
+const BACK_REGIONS: Region[] = [
+  { id: 'head', hit: { x: 98, y: 8, w: 64, h: 82, priority: 8 }, ellipse: { cx: 130, cy: 49, rx: 29, ry: 36 } },
+  { id: 'neck', hit: { x: 104, y: 80, w: 52, h: 32, priority: 10 }, d: 'M116 82 C118 94 113 102 105 106 L155 106 C147 102 142 94 144 82 Z' },
+  { id: 'shoulder_left', hit: { x: 39, y: 103, w: 69, h: 55, priority: 9 }, d: 'M101 105 C82 108 65 114 53 125 C47 132 43 142 42 154 C55 155 68 153 80 149 C85 130 91 116 101 109 Z' },
+  { id: 'shoulder_right', hit: { x: 152, y: 103, w: 69, h: 55, priority: 9 }, d: 'M159 105 C178 108 195 114 207 125 C213 132 217 142 218 154 C205 155 192 153 180 149 C175 130 169 116 159 109 Z' },
+  { id: 'shoulder_blade_left', hit: { x: 82, y: 108, w: 48, h: 70, priority: 8 }, d: 'M91 113 C102 108 114 106 129 106 L129 174 C116 174 104 170 94 164 C89 148 87 130 91 113 Z' },
+  { id: 'shoulder_blade_right', hit: { x: 130, y: 108, w: 48, h: 70, priority: 8 }, d: 'M131 106 C146 106 158 108 169 113 C173 130 171 148 166 164 C156 170 144 174 131 174 Z' },
+  { id: 'mid_back', hit: { x: 88, y: 166, w: 84, h: 69, priority: 7 }, d: 'M94 165 C105 171 117 174 130 174 C143 174 155 171 166 165 C164 184 164 202 168 216 C156 224 143 228 130 228 C117 228 104 224 92 216 C96 202 96 184 94 165 Z' },
+  { id: 'lower_back_left', hit: { x: 87, y: 214, w: 43, h: 57, priority: 8 }, d: 'M92 216 C103 224 115 228 129 228 L126 267 C113 267 103 263 95 256 C91 242 90 229 92 216 Z' },
+  { id: 'lower_back_right', hit: { x: 130, y: 214, w: 43, h: 57, priority: 8 }, d: 'M131 228 C145 228 157 224 168 216 C170 229 169 242 165 256 C157 263 147 267 134 267 Z' },
+  { id: 'glute_left', hit: { x: 84, y: 250, w: 47, h: 61, priority: 9 }, d: 'M95 255 C87 263 84 276 87 290 C95 301 108 307 127 307 L126 267 C113 267 103 263 95 255 Z' },
+  { id: 'glute_right', hit: { x: 129, y: 250, w: 47, h: 61, priority: 9 }, d: 'M165 255 C173 263 176 276 173 290 C165 301 152 307 133 307 L134 267 C147 267 157 263 165 255 Z' },
+  { id: 'upper_arm_left', hit: { x: 35, y: 145, w: 49, h: 96, priority: 8 }, d: 'M47 148 C41 167 39 186 39 203 C39 216 40 227 43 237 L59 234 C60 218 62 202 65 186 C68 171 73 158 80 149 Z' },
+  { id: 'elbow_left', hit: { x: 31, y: 228, w: 30, h: 31, priority: 10 }, ellipse: { cx: 45, cy: 243, rx: 12, ry: 13 } },
+  { id: 'forearm_left', hit: { x: 26, y: 251, w: 38, h: 80, priority: 8 }, d: 'M41 255 C38 273 34 289 30 304 C27 315 30 324 36 326 C43 328 49 322 51 313 C55 293 59 273 59 255 Z' },
+  { id: 'hand_left', hit: { x: 17, y: 317, w: 36, h: 45, priority: 10 }, d: 'M29 321 C21 328 18 339 22 349 C25 357 32 360 39 355 C45 351 48 341 46 328 Z' },
+  { id: 'upper_arm_right', hit: { x: 176, y: 145, w: 49, h: 96, priority: 8 }, d: 'M213 148 C219 167 221 186 221 203 C221 216 220 227 217 237 L201 234 C200 218 198 202 195 186 C192 171 187 158 180 149 Z' },
+  { id: 'elbow_right', hit: { x: 199, y: 228, w: 30, h: 31, priority: 10 }, ellipse: { cx: 215, cy: 243, rx: 12, ry: 13 } },
+  { id: 'forearm_right', hit: { x: 196, y: 251, w: 38, h: 80, priority: 8 }, d: 'M219 255 C222 273 226 289 230 304 C233 315 230 324 224 326 C217 328 211 322 209 313 C205 293 201 273 201 255 Z' },
+  { id: 'hand_right', hit: { x: 207, y: 317, w: 36, h: 45, priority: 10 }, d: 'M231 321 C239 328 242 339 238 349 C235 357 228 360 221 355 C215 351 212 341 214 328 Z' },
+  { id: 'hamstring_left', hit: { x: 82, y: 299, w: 46, h: 91, priority: 8 }, d: 'M88 292 C84 312 85 333 88 352 C90 366 94 378 99 387 L122 382 C120 361 121 342 124 323 C126 315 127 308 127 304 C111 305 98 301 88 292 Z' },
+  { id: 'hamstring_right', hit: { x: 132, y: 299, w: 46, h: 91, priority: 8 }, d: 'M172 292 C176 312 175 333 172 352 C170 366 166 378 161 387 L138 382 C140 361 139 342 136 323 C134 315 133 308 133 304 C149 305 162 301 172 292 Z' },
+  { id: 'knee_left', hit: { x: 87, y: 376, w: 37, h: 38, priority: 10 }, ellipse: { cx: 105, cy: 395, rx: 15, ry: 16 } },
+  { id: 'knee_right', hit: { x: 136, y: 376, w: 37, h: 38, priority: 10 }, ellipse: { cx: 155, cy: 395, rx: 15, ry: 16 } },
+  { id: 'calf_left', hit: { x: 84, y: 406, w: 38, h: 64, priority: 8 }, d: 'M94 411 C92 429 90 447 88 466 L112 466 C116 448 118 430 118 411 Z' },
+  { id: 'calf_right', hit: { x: 138, y: 406, w: 38, h: 64, priority: 8 }, d: 'M166 411 C168 429 170 447 172 466 L148 466 C144 448 142 430 142 411 Z' },
+  { id: 'heel_left', hit: { x: 78, y: 461, w: 40, h: 38, priority: 10 }, d: 'M87 465 L112 465 L111 480 C106 491 99 497 90 498 C83 496 80 489 82 479 Z' },
+  { id: 'heel_right', hit: { x: 142, y: 461, w: 40, h: 38, priority: 10 }, d: 'M173 465 L148 465 L149 480 C154 491 161 497 170 498 C177 496 180 489 178 479 Z' },
 ];
 
 export function BodyMap({ selected, onToggle }: BodyMapProps) {
@@ -143,6 +127,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
   const scale = Math.min(width / VIEW_W, SVG_H / VIEW_H);
   const offsetX = (width - VIEW_W * scale) / 2;
   const offsetY = (SVG_H - VIEW_H * scale) / 2;
+
   const boxFor = (hit: HitBox) => ({
     left: offsetX + hit.x * scale,
     top: offsetY + hit.y * scale,
@@ -153,35 +138,35 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
 
   const styles = useMemo(() => StyleSheet.create({
     container: { gap: theme.spacing.md },
-    toggle: { flexDirection: 'row', alignSelf: 'center', backgroundColor: theme.colors.surfaceMuted, borderRadius: theme.radius.pill, padding: 4, gap: 4 },
-    toggleButton: { minWidth: 92, minHeight: 40, paddingHorizontal: theme.spacing.lg, alignItems: 'center', justifyContent: 'center', borderRadius: theme.radius.pill },
+    toggle: {
+      flexDirection: 'row' as const,
+      alignSelf: 'center' as const,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderRadius: theme.radius.pill,
+      padding: 4,
+      gap: 4,
+    },
+    toggleButton: {
+      minWidth: 92,
+      minHeight: 40,
+      paddingHorizontal: theme.spacing.lg,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      borderRadius: theme.radius.pill,
+    },
     toggleButtonSelected: { backgroundColor: theme.colors.primary },
     toggleText: { ...theme.typography.caption, fontFamily: theme.fonts.semibold, color: theme.colors.inkSecondary },
     toggleTextSelected: { color: theme.colors.onPrimary },
-    diagramWrap: { position: 'relative', minHeight: SVG_H },
-    hitTarget: { position: 'absolute', backgroundColor: 'transparent' },
-    hint: { ...theme.typography.caption, textAlign: 'center' },
-    selectedText: { ...theme.typography.bodySecondary, fontFamily: theme.fonts.semibold, color: theme.colors.primary, textAlign: 'center' },
-    emptyText: { ...theme.typography.bodySecondary, color: theme.colors.inkMuted, textAlign: 'center' },
+    diagramWrap: { position: 'relative' as const, minHeight: SVG_H },
+    hitTarget: { position: 'absolute' as const, backgroundColor: 'transparent' },
+    hint: { ...theme.typography.caption, textAlign: 'center' as const },
+    selectedText: { ...theme.typography.bodySecondary, fontFamily: theme.fonts.semibold, color: theme.colors.primary, textAlign: 'center' as const },
+    emptyText: { ...theme.typography.bodySecondary, color: theme.colors.inkMuted, textAlign: 'center' as const },
   }), [theme]);
-
-  const renderRegion = (region: RegionShape) => {
-    const isSelected = selected.includes(region.id);
-    const common = {
-      fill: isSelected ? theme.colors.primary : 'transparent',
-      stroke: isSelected ? theme.colors.primaryPressed : theme.colors.border,
-      strokeWidth: isSelected ? 2.2 : 0.8,
-      opacity: isSelected ? 0.88 : 0.62,
-    };
-    if (region.kind === 'ellipse') {
-      return <Ellipse key={region.id} cx={region.cx} cy={region.cy} rx={region.rx} ry={region.ry} {...common} />;
-    }
-    return <Path key={region.id} d={region.d} {...common} />;
-  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.toggle}>
+      <View style={styles.toggle} accessibilityRole="tablist">
         {(['front', 'back'] as const).map((option) => {
           const active = view === option;
           const label = option === 'front' ? 'Front' : 'Back';
@@ -189,7 +174,7 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
             <Pressable
               key={option}
               onPress={() => setView(option)}
-              accessibilityRole="button"
+              accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={`${label} body view`}
               style={[styles.toggleButton, active && styles.toggleButtonSelected]}
@@ -206,25 +191,39 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
         accessibilityLabel={selected.length > 0 ? `${view} body map. Selected: ${selectedLabels}` : `${view} body map. Nothing selected yet.`}
       >
         <Svg width="100%" height={SVG_H} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
-          <Path d={outline} fill={theme.colors.surfaceMuted} stroke={theme.colors.inkMuted} strokeWidth={1.35} />
+          <Path
+            d={outline}
+            fill={theme.colors.surfaceMuted}
+            stroke={theme.colors.border}
+            strokeWidth={1.5}
+          />
 
-          {regions.map(renderRegion)}
+          {regions.map((region) => {
+            const isSelected = selected.includes(region.id);
+            if (!isSelected) return null;
 
-          {view === 'front' ? (
-            <>
-              <Path d="M106 117 C116 121 123 122 130 122 C137 122 144 121 154 117" fill="none" stroke={theme.colors.border} strokeWidth={1} opacity={0.7} />
-              <Line x1={130} y1={123} x2={130} y2={166} stroke={theme.colors.border} strokeWidth={0.8} opacity={0.55} />
-              <Ellipse cx={130} cy={209} rx={2.3} ry={2.3} fill={theme.colors.inkMuted} opacity={0.45} />
-              <Path d="M100 256 C110 263 120 266 130 266 C140 266 150 263 160 256" fill="none" stroke={theme.colors.border} strokeWidth={0.8} opacity={0.55} />
-            </>
-          ) : (
-            <>
-              <Path d="M101 119 C109 130 116 137 126 143" fill="none" stroke={theme.colors.border} strokeWidth={1} opacity={0.65} />
-              <Path d="M159 119 C151 130 144 137 134 143" fill="none" stroke={theme.colors.border} strokeWidth={1} opacity={0.65} />
-              <Path d="M130 111 C128 145 129 177 130 212 C131 229 130 244 130 259" fill="none" stroke={theme.colors.inkMuted} strokeWidth={1} opacity={0.5} />
-              <Path d="M96 255 C106 263 118 266 130 266 C142 266 154 263 164 255" fill="none" stroke={theme.colors.border} strokeWidth={0.8} opacity={0.55} />
-            </>
-          )}
+            const common = {
+              fill: theme.colors.primary,
+              stroke: theme.colors.primaryPressed,
+              strokeWidth: 2.2,
+              opacity: 0.9,
+            };
+
+            if (region.ellipse) {
+              return (
+                <Ellipse
+                  key={`selected-${region.id}`}
+                  cx={region.ellipse.cx}
+                  cy={region.ellipse.cy}
+                  rx={region.ellipse.rx}
+                  ry={region.ellipse.ry}
+                  {...common}
+                />
+              );
+            }
+
+            return region.d ? <Path key={`selected-${region.id}`} d={region.d} {...common} /> : null;
+          })}
         </Svg>
 
         {width > 0 && regions.map((region) => {
@@ -244,8 +243,9 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
       </View>
 
       <Text style={styles.hint}>
-        {view === 'front' ? 'Front view' : 'Back view'} — tap every area that applies.
+        {view === 'front' ? 'Front view' : 'Back view'} — tap the area that applies.
       </Text>
+
       {selected.length > 0 ? (
         <Text style={styles.selectedText}>Selected: {selectedLabels}</Text>
       ) : (
