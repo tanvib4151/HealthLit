@@ -11,12 +11,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -27,3 +27,7 @@ jobs:
 
       - name: Expo Doctor
         run: npx expo-doctor
+
+      - name: Production dependency audit
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
