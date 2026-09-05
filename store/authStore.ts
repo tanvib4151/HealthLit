@@ -187,6 +187,7 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
   },
 
   signOutUser: async () => {
+    if (auth === null) return;
     await firebaseSignOut(auth);
   },
 
