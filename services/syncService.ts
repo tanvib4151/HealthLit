@@ -131,7 +131,8 @@ async function pullCollection<T>(
 
   try {
     const snapshot = await getDocs(collection(db, 'users', uid, collectionName));
-    return snapshot.docs.map((docSnap) => docSnap.data()).filter(isValid);
+    const values: unknown[] = snapshot.docs.map((docSnap) => docSnap.data());
+    return values.filter(isValid);
   } catch {
     console.warn(`[syncService] Could not pull ${collectionName} from cloud.`);
     return [];
