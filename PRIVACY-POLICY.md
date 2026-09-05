@@ -1,81 +1,74 @@
 # HealthLit Privacy Policy
 
-**Last updated: 13 August 2026**
-
-> **Before publishing:** replace `support@healthlit.app` and `[YOUR LEGAL ENTITY]` with real values, and host this at a public URL. Apple requires a working, publicly reachable privacy policy link — a placeholder or a 404 is a rejection. This document describes what the HealthLit code actually does as of this version; if data handling changes, this must change with it.
+**Last updated: September 5, 2026**
 
 ## The short version
 
-HealthLit is a symptom diary. Your entries are stored on your own device. You do not need an account to use any feature. If you choose to sign in, your entries are also backed up to your private cloud storage so you can move between devices. We do not sell your data, we do not show advertising, and we do not share your health information with third parties for their own purposes.
+HealthLit is a local-first symptom diary. In the current App Store release, HealthLit does not require or offer an account, and the developer does not collect your health information. Your symptom entries, profile, medications, wellness check-ins, symptom start dates, report edits, and settings are stored on your device.
+
+HealthLit does not sell personal information, show advertising, use tracking technology, or include analytics or crash-reporting SDKs.
 
 ## Who we are
 
-HealthLit is provided by [YOUR LEGAL ENTITY]. For any privacy question, contact **support@healthlit.app**.
+HealthLit is provided by the HealthLit development team. For privacy or support questions, contact **support@healthlit.app**.
 
-## What HealthLit stores
+## Information you enter
 
-Everything below is information you enter yourself. HealthLit does not read data from other apps, does not connect to Apple Health or Google Fit, and does not collect anything in the background.
+HealthLit can store information that you choose to enter, including:
 
-**Symptom entries** — the symptom, a severity rating, and optionally duration, triggers, relief factors, descriptive words, body areas, linked medications, and free-text notes. Each entry records when the symptom occurred and when the record was saved.
+- Symptom entries, such as symptom type, severity, time, duration, descriptive words, body areas, factors you mark as possible triggers or reliefs, linked medications, and notes.
+- Optional profile information, such as a display name, date of birth, condition, primary doctor, and emergency contact.
+- Medication names, doses, and schedule notes.
+- Wellness check-ins and any note you choose to add.
+- Symptom start dates and onset notes.
+- Text you write when editing a report section.
+- App settings, including appearance preferences, reminder settings, and acknowledgement of the medical disclaimer.
 
-**Your profile** — anything you choose to enter: a display name, date of birth, condition, and primary doctor. All of it is optional and blank by default.
+HealthLit does not read Apple Health data, contacts, photos, camera, microphone, precise location, advertising identifiers, or data from other apps.
 
-**Medications** — names, doses, and schedule notes you add.
+## Where your data is stored
 
-**Symptom start dates** — when you tell us a symptom began, and an optional note about it.
+In the current App Store release, HealthLit stores app data on your device using local app storage. The developer does not receive or have access to this data through HealthLit.
 
-**Report edits** — any text you write to replace a generated section of a report.
+Core features—including logging, history, charts, reports, and PDF generation—are designed to work without an account or cloud service.
 
-**Settings** — your light/dark preference and the fact that you have acknowledged the medical disclaimer.
-
-### What HealthLit does not collect
-
-No location. No contacts. No photos, camera, or microphone. No advertising identifier. No device fingerprint. No analytics or crash-reporting SDK is present in this version, so we do not receive usage statistics or crash reports. There is no third-party advertising or tracking code in the app.
-
-## Where it is stored
-
-**On your device, always.** HealthLit is local-first. Every feature — logging, history, charts, reports, PDF export — works with no internet connection and no account. This is the default and you can use the app this way indefinitely.
-
-**In the cloud, only if you sign in.** Signing in is entirely optional and adds nothing but a backup. If you create an account, your entries, profile, medications, and custom symptoms are stored in Google Firebase (Firebase Authentication and Cloud Firestore), operated by Google LLC as our processor. Access rules restrict your data so that it can only be read or written by your own signed-in account. Google processes this data on our behalf under their terms; they do not use it for their own purposes.
-
-Data in Firebase is stored on Google Cloud infrastructure, which may be located outside your country. Data in transit is encrypted using TLS.
+If a future version introduces optional cloud backup or another service that transmits HealthLit data off your device, this policy and the App Store privacy disclosure will be updated before that version is released.
 
 ## Reports and PDF export
 
-Reports are generated **entirely on your device** using ordinary arithmetic over your own entries. No artificial intelligence service, language model, or external server is involved in producing a report, and your health data is never transmitted for this purpose.
+Reports are generated on your device from the entries you recorded. HealthLit does not send your health information to an artificial-intelligence service, language model, or external server to generate a report.
 
-When you print or share a report, the file is created on your device and handed to whatever you choose to share it with — a printer, a mail app, a messaging app. Where it goes from there is governed by that app, not by us.
+When you choose to print, save, or share a report, iOS hands the resulting file to the destination you select. Data you intentionally share with another app, service, person, printer, or clinician is then subject to that recipient's privacy practices.
 
-## Sharing
+## Reminders
 
-We do not sell your personal information and we do not share it for advertising or other companies' purposes. We disclose information only:
+HealthLit reminders are local notifications scheduled on your device. Reminder text is intentionally generic and does not include symptom or medication details. HealthLit does not use a remote push-notification service to deliver these reminders.
 
-- To Google Firebase, as described above, when you have signed in.
-- Where we are legally required to, such as a valid legal order.
+## Analytics, tracking, and advertising
 
-## How long we keep it
+The current release does not include third-party advertising, analytics, tracking, or crash-reporting SDKs. HealthLit does not create advertising profiles or sell personal information.
 
-On-device data stays until you delete it. **Profile → Clear All Data** erases entries, profile, medications, custom symptoms, symptom start dates, and report edits from the device.
+## Deleting your data
 
-If you signed in, deleting the app from your phone does not by itself remove the cloud copy. To have your cloud data deleted, email **support@healthlit.app** from your account address and we will delete it.
+You can edit or delete individual entries from within the app. You can also clear HealthLit data from the device using the app's data controls. Deleting the app from the device also removes data stored in the app's local container, subject to normal iOS backup and restore behavior controlled by Apple and your device settings.
 
-## Your rights
+Because the current App Store release does not create HealthLit accounts or upload your HealthLit records to a developer-controlled cloud service, there is no separate HealthLit cloud account to delete.
 
-Depending on where you live, you may have the right to access, correct, delete, or receive a copy of your personal information, and to withdraw consent. Because HealthLit is local-first, you can already view, edit, and delete everything in the app itself. For anything you cannot do in the app, or to exercise these rights over cloud-stored data, contact **support@healthlit.app**.
+## Your choices and rights
 
-If you are in the EEA or UK, our lawful basis for processing health data is your explicit consent, given when you choose to enter it and when you choose to sign in. You may withdraw that consent at any time by clearing your data and deleting your account.
+You control what information you enter into HealthLit and what you choose to export or share. Depending on where you live, privacy law may provide additional rights. For questions about the current release, contact **support@healthlit.app**.
 
 ## Children
 
-HealthLit is not directed at children under 13 and we do not knowingly collect information from them. If you believe a child has provided us with information, contact us and we will delete it.
+HealthLit is not directed at children under 13. The developer does not knowingly collect personal information from children through the current local-only release.
 
 ## Not medical advice
 
-HealthLit is a symptom diary, not a medical device. It records what you enter and summarises your own figures back to you. It does not diagnose conditions, identify causes, predict outcomes, or recommend treatment. Always speak to a qualified clinician about your health, and never delay seeking care because of anything you read in this app.
+HealthLit is a symptom diary, not a medical device. It records what you enter and summarizes your own data back to you. It does not diagnose conditions, establish causes, predict outcomes, or recommend treatment. Always speak with a qualified clinician about medical concerns and do not delay seeking care because of information shown in the app.
 
 ## Changes
 
-If we change how HealthLit handles data, we will update this policy and its date, and note significant changes in the app.
+If HealthLit changes how it handles data, this policy will be updated before the applicable release and the "Last updated" date above will change.
 
 ## Contact
 
