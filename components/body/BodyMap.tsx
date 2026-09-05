@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SvgUri } from 'react-native-svg';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, Ellipse, G, Image as SvgImage, Mask, Rect } from 'react-native-svg';
 
 import { getRegionLabel } from '../../utils/bodyRegions';
 import { useTheme } from '../../hooks/useTheme';
@@ -16,16 +16,20 @@ type Zone =
   | { id: string; priority?: number; kind: 'rect'; x: number; y: number; w: number; h: number; r?: number };
 
 type FigureAsset = {
-  uri: string;
+  pngUri: string;
   width: number;
   height: number;
   zones: Zone[];
 };
 
-const FRONT_URI =
-  'https://upload.wikimedia.org/wikipedia/commons/2/2c/Human_silhouette_gender_neutral_front.svg';
-const BACK_URI =
-  'https://upload.wikimedia.org/wikipedia/commons/8/85/Human_silhouette_gender_neutral_back.svg';
+// CC0 artwork by Sebastian Wallroth, Wikimedia Commons.
+// We render the same transparent PNG once as the visible figure and once as
+// an alpha mask. Every tappable/highlighted region is therefore intersected
+// with the figure itself, so it cannot extend beyond the real body contour.
+const FRONT_PNG =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Human_silhouette_gender_neutral_front.svg/500px-Human_silhouette_gender_neutral_front.svg.png';
+const BACK_PNG =
+  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Human_silhouette_gender_neutral_back.svg/500px-Human_silhouette_gender_neutral_back.svg.png';
 
 const FRONT_ZONES: Zone[] = [
   { id: 'head', kind: 'ellipse', cx: 280, cy: 86, rx: 70, ry: 82, priority: 5 },
@@ -90,68 +94,21 @@ const BACK_ZONES: Zone[] = [
 ];
 
 const ASSETS: Record<BodyView, FigureAsset> = {
-  front: { uri: FRONT_URI, width: 559, height: 1204, zones: FRONT_ZONES },
-  back: { uri: BACK_URI, width: 559, height: 1190, zones: BACK_ZONES },
+  front: { pngUri: FRONT_PNG, width: 559, height: 1204, zones: FRONT_ZONES },
+  back: { pngUri: BACK_PNG, width: 559, height: 1190, zones: BACK_ZONES },
 };
-
-function zoneBox(zone: Zone, scale: number) {
-  if (zone.kind === 'ellipse') {
-    return {
-      left: (zone.cx - zone.rx) * scale,
-      top: (zone.cy - zone.ry) * scale,
-      width: zone.rx * 2 * scale,
-      height: zone.ry * 2 * scale,
-      borderRadius: Math.max(zone.rx, zone.ry) * scale,
-      zIndex: zone.priority ?? 1,
-    };
-  }
-  return {
-    left: zone.x * scale,
-    top: zone.y * scale,
-    width: zone.w * scale,
-    height: zone.h * scale,
-    borderRadius: (zone.r ?? 0) * scale,
-    zIndex: zone.priority ?? 1,
-  };
-}
-
-function selectionOutline(zone: Zone) {
-  // The interaction zone remains generous, but the visible outline is
-  // inset well inside it so it never hangs off the professional figure.
-  // This keeps the artwork clean while still showing exactly which area
-  // was selected.
-  if (zone.kind === 'ellipse') {
-    return {
-      left: '24%' as const,
-      top: '24%' as const,
-      right: '24%' as const,
-      bottom: '24%' as const,
-      borderRadius: 999,
-    };
-  }
-
-  const verticalInset = zone.h > zone.w * 1.8 ? '18%' : '22%';
-  return {
-    left: '20%' as const,
-    right: '20%' as const,
-    top: verticalInset as any,
-    bottom: verticalInset as any,
-    borderRadius: 999,
-  };
-}
 
 export function BodyMap({ selected, onToggle }: BodyMapProps) {
   const theme = useTheme();
   const [view, setView] = useState<BodyView>('front');
-  const [frameWidth, setFrameWidth] = useState(232);
   const asset = ASSETS[view];
   const selectedLabels = selected.map(getRegionLabel).join(', ');
+  const maskId = `body-mask-${view}`;
 
   const orderedZones = useMemo(
     () => [...asset.zones].sort((a, b) => (a.priority ?? 1) - (b.priority ?? 1)),
     [asset.zones],
   );
-  const scale = frameWidth / asset.width;
 
   const styles = useMemo(
     () =>
@@ -183,32 +140,9 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
         figureFrame: {
           width: 232,
           alignSelf: 'center',
-          position: 'relative',
           backgroundColor: theme.colors.surface,
           borderRadius: theme.radius.xl,
           overflow: 'hidden',
-        },
-        hitTarget: {
-          position: 'absolute',
-          backgroundColor: 'transparent',
-        },
-        selectedOutline: {
-          position: 'absolute',
-          borderWidth: 1.5,
-          borderColor: theme.colors.primary,
-          backgroundColor: 'transparent',
-          opacity: 0.95,
-        },
-        selectedDot: {
-          position: 'absolute',
-          width: 5,
-          height: 5,
-          borderRadius: 999,
-          backgroundColor: theme.colors.primary,
-          left: '50%',
-          top: '50%',
-          marginLeft: -2.5,
-          marginTop: -2.5,
         },
         hint: { ...theme.typography.caption, textAlign: 'center' },
         selectedText: {
@@ -248,37 +182,74 @@ export function BodyMap({ selected, onToggle }: BodyMapProps) {
         })}
       </View>
 
-      <View
-        style={[styles.figureFrame, { aspectRatio: asset.width / asset.height }]}
-        onLayout={(event: LayoutChangeEvent) => setFrameWidth(event.nativeEvent.layout.width)}
-      >
-        <SvgUri width="100%" height="100%" uri={asset.uri} pointerEvents="none" />
+      <View style={[styles.figureFrame, { aspectRatio: asset.width / asset.height }]}>
+        <Svg width="100%" height="100%" viewBox={`0 0 ${asset.width} ${asset.height}`}>
+          <Defs>
+            <Mask id={maskId} x={0} y={0} width={asset.width} height={asset.height} maskType="alpha">
+              <SvgImage
+                href={{ uri: asset.pngUri }}
+                x={0}
+                y={0}
+                width={asset.width}
+                height={asset.height}
+                preserveAspectRatio="xMidYMid meet"
+              />
+            </Mask>
+          </Defs>
 
-        {orderedZones.map((zone) => {
-          const isSelected = selected.includes(zone.id);
-          return (
-            <Pressable
-              key={`hit-${zone.id}`}
-              onPress={() => onToggle(zone.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              accessibilityLabel={`${getRegionLabel(zone.id)}${isSelected ? ', selected' : ''}`}
-              accessibilityHint={isSelected ? 'Double tap to remove this area' : 'Double tap to select this area'}
-              style={[styles.hitTarget, zoneBox(zone, scale)]}
-            >
-              {isSelected && (
-                <>
-                  <View pointerEvents="none" style={[styles.selectedOutline, selectionOutline(zone)]} />
-                  <View pointerEvents="none" style={styles.selectedDot} />
-                </>
-              )}
-            </Pressable>
-          );
-        })}
+          <SvgImage
+            href={{ uri: asset.pngUri }}
+            x={0}
+            y={0}
+            width={asset.width}
+            height={asset.height}
+            preserveAspectRatio="xMidYMid meet"
+            pointerEvents="none"
+          />
+
+          <G mask={`url(#${maskId})`}>
+            {orderedZones.map((zone) => {
+              const isSelected = selected.includes(zone.id);
+              const common = {
+                onPress: () => onToggle(zone.id),
+                fill: isSelected ? theme.colors.primary : 'rgba(0,0,0,0.001)',
+                fillOpacity: isSelected ? 0.34 : 1,
+                stroke: isSelected ? theme.colors.primary : 'transparent',
+                strokeWidth: isSelected ? 2.5 : 0,
+              };
+
+              if (zone.kind === 'ellipse') {
+                return (
+                  <Ellipse
+                    key={zone.id}
+                    cx={zone.cx}
+                    cy={zone.cy}
+                    rx={zone.rx}
+                    ry={zone.ry}
+                    {...common}
+                  />
+                );
+              }
+
+              return (
+                <Rect
+                  key={zone.id}
+                  x={zone.x}
+                  y={zone.y}
+                  width={zone.w}
+                  height={zone.h}
+                  rx={zone.r ?? 0}
+                  ry={zone.r ?? 0}
+                  {...common}
+                />
+              );
+            })}
+          </G>
+        </Svg>
       </View>
 
       <Text style={styles.hint}>
-        {view === 'front' ? 'Front view' : 'Back view'} — tap directly on the figure.
+        {view === 'front' ? 'Front view' : 'Back view'} — tap directly on the body.
       </Text>
 
       {selected.length > 0 ? (
