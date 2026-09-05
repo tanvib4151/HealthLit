@@ -1,8 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { useAppPrefsStore } from '../../store/appPrefsStore';
+import { useCustomSymptomStore } from '../../store/customSymptomStore';
+import { useLogStore } from '../../store/logStore';
+import { useMedicationStore } from '../../store/medicationStore';
+import { useOnsetStore } from '../../store/onsetStore';
+import { useProfileStore } from '../../store/profileStore';
+import { useStoryStore } from '../../store/storyStore';
+import { useWellnessStore } from '../../store/wellnessStore';
 import { useTheme } from '../../hooks/useTheme';
 import { formatReminderTime, remindersSupported } from '../../services/reminderService';
 
@@ -18,19 +26,29 @@ const PRIVACY_URL = 'https://tanvib4151.github.io/HealthLit/privacy.html';
 const SUPPORT_URL = 'https://tanvib4151.github.io/HealthLit/support.html';
 
 /**
- * Daily reminder settings plus permanent privacy/support links.
+ * Profile settings for reminders, privacy/support, and local data controls.
  *
- * Apple requires the privacy policy to be easily accessible inside the
- * app, so those links intentionally live on Profile regardless of whether
- * notifications are supported on the current platform.
+ * Apple requires the privacy policy to be easily accessible inside the app.
+ * The local erase control is intentionally user-facing in production rather
+ * than hidden with developer reset tools.
  */
 export function ReminderCard() {
   const theme = useTheme();
   const prefs = useAppPrefsStore((state) => state.prefs);
   const setReminderEnabled = useAppPrefsStore((state) => state.setReminderEnabled);
   const setReminderTime = useAppPrefsStore((state) => state.setReminderTime);
+  const clearPrefs = useAppPrefsStore((state) => state.clearPrefs);
+  const clearAllEntries = useLogStore((state) => state.clearAllEntries);
+  const clearAllMedications = useMedicationStore((state) => state.clearAllMedications);
+  const clearAllCustomSymptoms = useCustomSymptomStore((state) => state.clearAllCustomSymptoms);
+  const clearProfile = useProfileStore((state) => state.clearProfile);
+  const clearAllStoryOverrides = useStoryStore((state) => state.clearAllOverrides);
+  const clearAllOnsets = useOnsetStore((state) => state.clearAllOnsets);
+  const clearAllCheckIns = useWellnessStore((state) => state.clearAllCheckIns);
+
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmingErase, setConfirmingErase] = useState(false);
   const canUseReminders = remindersSupported();
 
   const styles = useMemo(
@@ -84,6 +102,10 @@ export function ReminderCard() {
           ...theme.typography.body,
           color: theme.colors.inkMuted,
         },
+        eraseWarning: {
+          ...theme.typography.caption,
+          color: theme.colors.danger,
+        },
       }),
     [theme],
   );
@@ -99,6 +121,23 @@ export function ReminderCard() {
           'Allow them there, then try again.',
       );
     }
+  };
+
+  const handleEraseAllData = () => {
+    if (!confirmingErase) {
+      setConfirmingErase(true);
+      return;
+    }
+
+    clearAllEntries();
+    clearAllMedications();
+    clearAllCustomSymptoms();
+    clearProfile();
+    clearAllStoryOverrides();
+    clearAllOnsets();
+    clearAllCheckIns();
+    clearPrefs();
+    setConfirmingErase(false);
   };
 
   const openUrl = (url: string) => {
@@ -179,6 +218,29 @@ export function ReminderCard() {
           <Text style={styles.linkText}>Support</Text>
           <Text style={styles.linkArrow}>›</Text>
         </Pressable>
+      </Card>
+
+      <Card style={styles.card}>
+        <View style={styles.headerBody}>
+          <Text style={styles.title}>Your data</Text>
+          <Text style={styles.caption}>
+            Permanently remove HealthLit entries, medications, profile information,
+            wellness check-ins, custom symptoms, report edits, and app preferences
+            stored on this device.
+          </Text>
+        </View>
+        <Button
+          label={confirmingErase ? 'Tap again to erase everything' : 'Erase all data on this device'}
+          variant="ghost"
+          onPress={handleEraseAllData}
+          accessibilityHint="Permanently deletes all HealthLit data stored on this device"
+        />
+        {confirmingErase && (
+          <Text style={styles.eraseWarning}>
+            This cannot be undone. Tap the button again to permanently erase your
+            HealthLit data from this device.
+          </Text>
+        )}
       </Card>
     </>
   );
