@@ -52,7 +52,7 @@ Then open these exact URLs in a private browser window:
 
 Do not submit while any return 404.
 
-Also verify that **support@healthlit.app** is a real mailbox you can receive mail at. If it is not, change that address in the policy, support page, and App Store materials before submission.
+Also verify that **healthlithub@gmail.com** is a real mailbox you can receive mail at before submission.
 
 ### 2. Pull and run the release check locally
 
