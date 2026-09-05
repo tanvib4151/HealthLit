@@ -148,7 +148,12 @@ export function ChipGroupWithOther({
             autoFocus
             returnKeyType="done"
             onSubmitEditing={commit}
-            onBlur={commit}
+            // Do not also commit on blur: tapping the checkmark blurs
+            // the input before onPress, which could invoke the same
+            // toggle twice depending on the native event order.
+            onBlur={() => {
+              if (draft.trim() === '') setAdding(false);
+            }}
             accessibilityLabel={placeholder}
           />
           <Pressable
