@@ -50,7 +50,7 @@ $99/year. Individual accounts clear in 24–48h; **organisation accounts need a 
 
 `healthlit-site.zip` → three self-contained HTML files. Its README has the GitHub Pages steps.
 
-Before submitting: replace `[YOUR LEGAL ENTITY]`, point `support@healthlit.app` at a mailbox you read, and **open both URLs in a private window.** A dead privacy policy link is the most common App Store rejection there is.
+Before submitting: replace `[YOUR LEGAL ENTITY]`, use **healthlithub@gmail.com** as the support mailbox, and **open both URLs in a private window.** A dead privacy policy link is the most common App Store rejection there is.
 
 ## 5. Decide three things
 
