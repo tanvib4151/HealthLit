@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '../../hooks/useTheme';
 import { dateKeyFromLocalDate } from '../../utils/healthEvents';
@@ -17,15 +17,7 @@ function daysAgo(count: number, from: Date = new Date()): Date {
   return next;
 }
 
-/**
- * Horizontal scrollable day picker.
- *
- * Extracted from the Story screen so Insights can offer the same
- * custom-range control rather than a second implementation drifting
- * from this one. Plain Pressables in a ScrollView — no scroll-linked
- * interpolation, no snapping math. This is a settings control, not
- * the logging path, and cheap beats fancy on a slow phone.
- */
+/** Horizontal, virtualized day picker for long history ranges. */
 export function DayPickerRow({
   selected,
   onSelect,
@@ -33,7 +25,6 @@ export function DayPickerRow({
 }: {
   selected: Date;
   onSelect: (date: Date) => void;
-  /** How many days back the strip scrolls. */
   rangeDays: number;
 }) {
   const theme = useTheme();
@@ -46,47 +37,41 @@ export function DayPickerRow({
   }, [rangeDays]);
 
   const selectedKey = dateKeyFromLocalDate(selected);
-
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        row: { flexDirection: 'row', gap: theme.spacing.sm },
-        day: {
-          minWidth: 64,
-          minHeight: 44,
-          paddingHorizontal: theme.spacing.md,
-          borderRadius: theme.radius.pill,
-          borderWidth: 1.5,
-          borderColor: theme.colors.border,
-          backgroundColor: theme.colors.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        daySelected: {
-          backgroundColor: theme.colors.primary,
-          borderColor: theme.colors.primary,
-        },
-        dayLabel: {
-          ...theme.typography.caption,
-          fontFamily: theme.fonts.semibold,
-        },
-        dayLabelSelected: { color: theme.colors.onPrimary },
-      }),
-    [theme],
-  );
+    () => StyleSheet.create({
+      row: { gap: theme.spacing.sm },
+      day: {
+        minWidth: 64,
+        minHeight: 44,
+        paddingHorizontal: theme.spacing.md,
+        borderRadius: theme.radius.pill,
+        borderWidth: 1.5,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      daySelected: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+      dayLabel: { ...theme.typography.caption, fontFamily: theme.fonts.semibold },
+      dayLabelSelected: { color: theme.colors.onPrimary },
+    }), [theme]);
 
   return (
-    <ScrollView
+    <FlatList
       horizontal
+      data={options}
+      keyExtractor={dateKeyFromLocalDate}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
-    >
-      {options.map((date) => {
+      initialNumToRender={12}
+      maxToRenderPerBatch={16}
+      windowSize={5}
+      removeClippedSubviews
+      renderItem={({ item: date }) => {
         const key = dateKeyFromLocalDate(date);
         const isSelected = key === selectedKey;
         return (
           <Pressable
-            key={key}
             onPress={() => onSelect(date)}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
@@ -98,8 +83,8 @@ export function DayPickerRow({
             </Text>
           </Pressable>
         );
-      })}
-    </ScrollView>
+      }}
+    />
   );
 }
 
