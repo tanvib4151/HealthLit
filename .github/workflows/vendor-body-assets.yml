@@ -15,6 +15,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install SVG renderer
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin
+
       - name: Download verified CC0 body figures
         run: |
           mkdir -p assets/body
@@ -27,14 +30,24 @@ jobs:
           test -s assets/body/body-front.svg
           test -s assets/body/body-back.svg
 
+      - name: Render transparent local PNGs
+        run: |
+          rsvg-convert --keep-aspect-ratio --width 559 --height 1204 \
+            assets/body/body-front.svg > assets/body/body-front.png
+          rsvg-convert --keep-aspect-ratio --width 559 --height 1190 \
+            assets/body/body-back.svg > assets/body/body-back.png
+          test -s assets/body/body-front.png
+          test -s assets/body/body-back.png
+          file assets/body/body-front.png assets/body/body-back.png
+
       - name: Commit vendored assets
         run: |
-          if git diff --quiet -- assets/body && git ls-files --error-unmatch assets/body/body-front.svg assets/body/body-back.svg >/dev/null 2>&1; then
-            echo 'Body assets already present.'
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/body/body-front.svg assets/body/body-back.svg
-          git commit -m 'Vendor CC0 body map artwork'
+          git add assets/body/body-front.svg assets/body/body-back.svg assets/body/body-front.png assets/body/body-back.png
+          if git diff --cached --quiet; then
+            echo 'Body assets already current.'
+            exit 0
+          fi
+          git commit -m 'Add bundled body map PNG assets'
           git push
