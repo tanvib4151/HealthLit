@@ -4,6 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { BodyMap } from '../components/body/BodyMap';
+import { TimeRangePicker } from '../components/log/TimeRangePicker';
+import { WellnessCard } from '../components/log/WellnessCard';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Chip } from '../components/ui/Chip';
@@ -14,19 +16,18 @@ import { SelectCard } from '../components/ui/SelectCard';
 import { useCustomSymptomStore } from '../store/customSymptomStore';
 import { useLogStore } from '../store/logStore';
 import { useMedicationStore } from '../store/medicationStore';
-import { WellnessCard } from '../components/log/WellnessCard';
 import { SymptomEntry } from '../types/models';
 import { getRegionLabel } from '../utils/bodyRegions';
 import { CUSTOM_SYMPTOM_ICONS, CUSTOM_SYMPTOM_TINTS } from '../utils/customSymptomPalette';
 import {
   dateKeyFromDate,
   findLatestEntryForSymptomOnDay,
-  formatHourMinute,
   formatRelativeDayLabel,
   formatTime,
   getStreakDays,
 } from '../utils/entryStats';
 import {
+  APPROX_DURATION_OPTIONS,
   DURATION_OPTIONS,
   LOCATION_SYMPTOMS,
   QUALITY_OPTIONS,
@@ -399,87 +400,11 @@ function WhenStep() {
   const symptomDrafts = useLogStore((state) => state.draft.symptomDrafts);
   const symptomTypes = symptomDrafts.map((card) => card.symptomType);
   const occurredAt = useLogStore((state) => state.draft.occurredAt);
-  const setOccurredAt = useLogStore((state) => state.setOccurredAt);
   const entries = useLogStore((state) => state.entries);
   const editingEntryId = useLogStore((state) => state.editingEntryId);
   const startEditingEntry = useLogStore((state) => state.startEditingEntry);
   const selectedDateKey = dateKeyFromDate(occurredAt);
-
-  const styles = useMemo(() => StyleSheet.create({
-    stepBody: { gap: theme.spacing.lg },
-    sectionLabel: { ...theme.typography.caption, fontFamily: theme.fonts.semibold },
-    carouselCard: { borderRadius: theme.radius.xl, backgroundColor: theme.colors.surfaceMuted, paddingVertical: theme.spacing.lg, overflow: 'hidden' as const },
-    centerMarker: { position: 'absolute' as const, top: 0, bottom: 0, left: '50%' as const, width: 3, marginLeft: -1.5, borderRadius: 2, backgroundColor: theme.colors.primary },
-    tick: { width: 68, alignItems: 'center' as const, justifyContent: 'center' as const },
-    tickPill: { paddingHorizontal: theme.spacing.md, paddingVertical: 6, borderRadius: theme.radius.pill },
-    tickPillSelected: { backgroundColor: theme.colors.primary },
-    tickLabel: { fontFamily: theme.fonts.semibold, color: theme.colors.ink },
-    tickLabelSelected: { color: theme.colors.onPrimary },
-    selectedTimeCaption: { ...theme.typography.body, fontFamily: theme.fonts.semibold, color: theme.colors.primary, textAlign: 'center' as const, marginTop: theme.spacing.xs },
-  }), [theme]);
-
-  const TIME_TICK_WIDTH = 68;
-  const timeOptions = useMemo(() => {
-    const options: { key: string; label: string; hour: number; minute: number }[] = [];
-    for (let minutesFromMidnight = 0; minutesFromMidnight < 24 * 60; minutesFromMidnight += 15) {
-      const hour = Math.floor(minutesFromMidnight / 60);
-      const minute = minutesFromMidnight % 60;
-      options.push({ key: `${hour}:${minute}`, label: formatHourMinute(hour, minute), hour, minute });
-    }
-    return options;
-  }, []);
-
-  const minutesFromMidnight = occurredAt.getHours() * 60 + occurredAt.getMinutes();
-  const selectedTimeIndex = Math.max(0, Math.min(timeOptions.length - 1, Math.round(minutesFromMidnight / 15)));
-
-  const [timeContainerWidth, setTimeContainerWidth] = useState(0);
-  const timeScrollRef = React.useRef<any>(null);
-  const timeScrollX = React.useRef(new Animated.Value(selectedTimeIndex * TIME_TICK_WIDTH)).current;
-  const latestTimeScrollX = React.useRef(selectedTimeIndex * TIME_TICK_WIDTH);
-  const timeWheelSettleTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const id = timeScrollX.addListener(({ value }) => { latestTimeScrollX.current = value; });
-    return () => scrollXCleanup(timeScrollX, id);
-  }, [timeScrollX]);
-
-  useEffect(() => () => {
-    if (timeWheelSettleTimer.current) clearTimeout(timeWheelSettleTimer.current);
-  }, []);
-
-  useEffect(() => {
-    if (timeContainerWidth <= 0) return;
-    const x = selectedTimeIndex * TIME_TICK_WIDTH;
-    latestTimeScrollX.current = x;
-    timeScrollX.setValue(x);
-    timeScrollRef.current?.scrollTo({ x, animated: false });
-  }, [timeContainerWidth, selectedTimeIndex, timeScrollX]);
-
-  const timeSidePadding = Math.max(0, timeContainerWidth / 2 - TIME_TICK_WIDTH / 2);
-  const maxTimeIndex = timeOptions.length - 1;
-
-  const snapToTimeIndex = (rawIndex: number, animated: boolean) => {
-    const clamped = Math.max(0, Math.min(maxTimeIndex, Math.round(rawIndex)));
-    const option = timeOptions[clamped];
-    const next = new Date(occurredAt);
-    next.setHours(option.hour, option.minute, 0, 0);
-    latestTimeScrollX.current = clamped * TIME_TICK_WIDTH;
-    setOccurredAt(next);
-    if (animated) timeScrollRef.current?.scrollTo({ x: latestTimeScrollX.current, animated: true });
-  };
-
-  const handleTimeScrollSettle = () => snapToTimeIndex(latestTimeScrollX.current / TIME_TICK_WIDTH, false);
-
-  const handleTimeWheel = (event: any) => {
-    if (Platform.OS !== 'web') return;
-    event.preventDefault?.();
-    const delta = event.deltaY ?? 0;
-    const nextX = Math.max(0, Math.min(maxTimeIndex * TIME_TICK_WIDTH, latestTimeScrollX.current + delta));
-    latestTimeScrollX.current = nextX;
-    timeScrollRef.current?.scrollTo({ x: nextX, animated: false });
-    if (timeWheelSettleTimer.current) clearTimeout(timeWheelSettleTimer.current);
-    timeWheelSettleTimer.current = setTimeout(handleTimeScrollSettle, 120);
-  };
+  const styles = useMemo(() => StyleSheet.create({ stepBody: { gap: theme.spacing.lg } }), [theme]);
 
   const existingOnSelectedDay = useMemo(() => {
     if (editingEntryId !== null) return [];
@@ -490,52 +415,11 @@ function WhenStep() {
 
   return (
     <View style={styles.stepBody}>
-      <StepHeader title="What time, roughly?" subtitle={`Logging for ${formatRelativeDayLabel(occurredAt)}. Change the day from Home if this isn't right.`} />
-      <View>
-        <Text style={styles.sectionLabel}>Time</Text>
-        <View
-          style={styles.carouselCard}
-          onLayout={(e) => setTimeContainerWidth(e.nativeEvent.layout.width)}
-          // @ts-expect-error react-native-web forwards onWheel.
-          onWheel={handleTimeWheel}
-          accessibilityRole="adjustable"
-          accessibilityLabel={`Time, ${timeOptions[selectedTimeIndex]?.label ?? ''}`}
-        >
-          <View pointerEvents="none" style={styles.centerMarker} />
-          {timeContainerWidth > 0 && (
-            <Animated.ScrollView
-              ref={timeScrollRef}
-              horizontal
-              bounces={false}
-              overScrollMode="never"
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={TIME_TICK_WIDTH}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingHorizontal: timeSidePadding }}
-              onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: timeScrollX } } }], { useNativeDriver: false })}
-              scrollEventThrottle={16}
-              onMomentumScrollEnd={handleTimeScrollSettle}
-              onScrollEndDrag={(e) => { if (Math.abs(e.nativeEvent.velocity?.x ?? 0) < 0.05) handleTimeScrollSettle(); }}
-            >
-              {timeOptions.map((option, index) => {
-                const distance = timeScrollX.interpolate({ inputRange: [(index - 1) * TIME_TICK_WIDTH, index * TIME_TICK_WIDTH, (index + 1) * TIME_TICK_WIDTH], outputRange: [0.35, 1, 0.35], extrapolate: 'clamp' });
-                const scale = timeScrollX.interpolate({ inputRange: [(index - 1) * TIME_TICK_WIDTH, index * TIME_TICK_WIDTH, (index + 1) * TIME_TICK_WIDTH], outputRange: [0.85, 1.08, 0.85], extrapolate: 'clamp' });
-                const isSelected = index === selectedTimeIndex;
-                const showLabel = option.minute === 0 || isSelected;
-                return (
-                  <Pressable key={option.key} onPress={() => snapToTimeIndex(index, true)} style={[styles.tick, { width: TIME_TICK_WIDTH }]}>
-                    <Animated.View style={[styles.tickPill, isSelected && styles.tickPillSelected, { opacity: distance, transform: [{ scale }] }]}>
-                      <Text style={[styles.tickLabel, { fontSize: 13 }, isSelected && styles.tickLabelSelected]}>{showLabel ? option.label : '·'}</Text>
-                    </Animated.View>
-                  </Pressable>
-                );
-              })}
-            </Animated.ScrollView>
-          )}
-        </View>
-        <Text style={styles.selectedTimeCaption}>{timeOptions[selectedTimeIndex]?.label ?? formatHourMinute(occurredAt.getHours(), occurredAt.getMinutes())}</Text>
-      </View>
-
+      <StepHeader
+        title="When did it start and end?"
+        subtitle={`Logging for ${formatRelativeDayLabel(occurredAt)}. Set a start time, then optionally set when it ended.`}
+      />
+      <TimeRangePicker />
       {existingOnSelectedDay.map((entry) => (
         <AlreadyLoggedBanner key={entry.id} entry={entry} onEditInstead={() => startEditingEntry(entry)} />
       ))}
@@ -762,10 +646,17 @@ function LocationSection({ symptomType }: { symptomType: string }) {
 
 function DurationSection({ symptomType }: { symptomType: string }) {
   const theme = useTheme();
-  const styles = useMemo(() => StyleSheet.create({ stepBody: { gap: theme.spacing.md } }), [theme]);
+  const styles = useMemo(() => StyleSheet.create({ stepBody: { gap: theme.spacing.md }, rangeNote: { ...theme.typography.caption, color: theme.colors.primary } }), [theme]);
   const durationKey = useLogStore((state) => state.draft.symptomDrafts.find((card) => card.symptomType === symptomType)?.durationKey ?? null);
   const setDurationKeyFor = useLogStore((state) => state.setDurationKeyFor);
-  return <View style={styles.stepBody}><StepHeader title="How long has it lasted?" subtitle="Your best estimate is fine. Optional." />{DURATION_OPTIONS.map((option) => <SelectCard key={option.key} label={option.label} selected={durationKey === option.key} onPress={() => setDurationKeyFor(symptomType, option.key)} />)}</View>;
+  const exactDuration = durationKey?.startsWith('exact_') ? DURATION_OPTIONS.find((option) => option.key === durationKey) : null;
+  return (
+    <View style={styles.stepBody}>
+      <StepHeader title="How long has it lasted?" subtitle="Your start/end range is used by default. Choose below only if this symptom lasted a different amount of time." />
+      {exactDuration && <Text style={styles.rangeNote}>From your time range: {exactDuration.label}</Text>}
+      {APPROX_DURATION_OPTIONS.map((option) => <SelectCard key={option.key} label={option.label} selected={durationKey === option.key} onPress={() => setDurationKeyFor(symptomType, option.key)} />)}
+    </View>
+  );
 }
 
 function FactorsSection({ symptomType }: { symptomType: string }) {
