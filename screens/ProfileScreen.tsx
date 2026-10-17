@@ -82,27 +82,18 @@ export default function ProfileScreen() {
 /**
  * Demo-prep tool: fills every screen with realistic ~5-week sample
  * data (trends, correlations, a streak, a story with several
- * insights) in one tap, and a matching one-tap reset. Not a
+ * insights) in one tap, and no bulk-clear control. Not a
  * user-facing feature — kept visually distinct (dashed border, muted
  * tone) and easy to delete outright before a real launch.
  */
 function DeveloperToolsCard() {
   const theme = useTheme();
   const [isBusy, setIsBusy] = useState(false);
-  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const loadDemoEntries = useLogStore((state) => state.loadDemoEntries);
-  const clearAllEntries = useLogStore((state) => state.clearAllEntries);
   const loadDemoMedications = useMedicationStore((state) => state.loadDemoMedications);
-  const clearAllMedications = useMedicationStore((state) => state.clearAllMedications);
   const loadDemoCustomSymptoms = useCustomSymptomStore((state) => state.loadDemoCustomSymptoms);
-  const clearAllCustomSymptoms = useCustomSymptomStore((state) => state.clearAllCustomSymptoms);
   const loadDemoProfile = useProfileStore((state) => state.loadDemoProfile);
-  const clearProfile = useProfileStore((state) => state.clearProfile);
-  const clearAllStoryOverrides = useStoryStore((state) => state.clearAllOverrides);
-  const clearAllOnsets = useOnsetStore((state) => state.clearAllOnsets);
-  const clearPrefs = useAppPrefsStore((state) => state.clearPrefs);
-  const clearAllCheckIns = useWellnessStore((state) => state.clearAllCheckIns);
 
   const styles = useMemo(
     () =>
@@ -141,21 +132,6 @@ function DeveloperToolsCard() {
     setIsBusy(false);
   };
 
-  const handleClearAllData = () => {
-    if (!confirmingClear) {
-      setConfirmingClear(true);
-      return;
-    }
-    clearAllEntries();
-    clearAllMedications();
-    clearAllCustomSymptoms();
-    clearProfile();
-    clearAllStoryOverrides();
-    clearAllOnsets();
-    clearAllCheckIns();
-    clearPrefs();
-    setConfirmingClear(false);
-  };
 
   return (
     <Card style={styles.card}>
@@ -172,13 +148,6 @@ function DeveloperToolsCard() {
           loading={isBusy}
           style={styles.buttonFlex}
           accessibilityHint="Replaces all data with a realistic sample dataset for demos"
-        />
-        <Button
-          label={confirmingClear ? 'Tap again to confirm' : 'Clear All Data'}
-          variant="ghost"
-          onPress={handleClearAllData}
-          style={styles.buttonFlex}
-          accessibilityHint="Permanently deletes all entries, medications, custom symptoms, and profile info on this device"
         />
       </View>
     </Card>
@@ -314,8 +283,7 @@ function BackupSyncCard() {
       {confirmingDelete && (
         <Text style={styles.deleteWarning}>
           This permanently deletes your account and everything backed up to the
-          cloud. Entries already on this phone stay here — use Clear All Data
-          below to remove those too.
+          cloud. Entries already on this phone remain stored locally.
         </Text>
       )}
       {deleteMessage !== null && <Text style={styles.deleteWarning}>{deleteMessage}</Text>}
