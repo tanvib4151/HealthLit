@@ -1,3 +1,4 @@
+import { entryTimeBucket, observationCoverage } from './observation';
 /**
  * Symptoms-to-Story engine.
  *
@@ -176,11 +177,12 @@ function buildDayOfWeekInsight(entries: SymptomEntry[]): StoryInsight | null {
 
 /** Time-of-day pattern: do entries cluster in one part of the day. */
 function buildTimeOfDayInsight(entries: SymptomEntry[]): StoryInsight | null {
+  entries = entries.filter(e => entryTimeBucket(e) !== null);
   if (entries.length < MIN_ENTRIES_FOR_PATTERN) return null;
 
   const buckets = { morning: 0, afternoon: 0, evening: 0, night: 0 };
   for (const entry of entries) {
-    const hour = new Date(entry.loggedAt).getHours();
+    const hour = ({ Morning: 9, Afternoon: 14, Evening: 19, Night: 23 } as Record<string, number>)[entryTimeBucket(entry) ?? ''] ?? new Date(entry.loggedAt).getHours();
     if (hour >= 5 && hour < 12) buckets.morning += 1;
     else if (hour >= 12 && hour < 17) buckets.afternoon += 1;
     else if (hour >= 17 && hour < 22) buckets.evening += 1;
@@ -353,7 +355,7 @@ export function buildStory(
 ): StoryInsight[] {
   const inRange = filterToRange(entries, rangeDays, now);
 
-  const insights: StoryInsight[] = [];
+  const insights: StoryInsight[] = inRange.length ? [{ icon: 'list-outline', label: 'Recorded observations', narrative: observationCoverage(inRange) }] : [];
 
   const trend = buildTrendInsight(inRange, customSymptoms);
   if (trend) insights.push(trend);
@@ -385,5 +387,5 @@ export function buildStory(
 
 /** True if there's enough data to generate any story at all. */
 export function hasEnoughDataForStory(entries: SymptomEntry[], rangeDays: number, now: Date = new Date()): boolean {
-  return filterToRange(entries, rangeDays, now).length >= MIN_ENTRIES_FOR_TREND;
+  return filterToRange(entries, rangeDays, now).length > 0;
 }

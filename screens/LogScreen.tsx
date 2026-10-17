@@ -1,3 +1,5 @@
+import { ContinuityFields } from '../components/log/ContinuityFields';
+import { formatEntryTiming, formatEntryDuration, formatContinuity } from '../utils/observation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -80,7 +82,7 @@ export default function LogScreen() {
   }, [editingEntryId]);
 
   const currentPhase = PHASE_ORDER[Math.min(phaseIndex, PHASE_ORDER.length - 1)];
-  const canContinue = currentPhase === 'Symptom' ? draft.symptomDrafts.length > 0 : true;
+  const canContinue = currentPhase === 'Symptom' ? draft.symptomDrafts.length > 0 : draft.timingValid !== false;
 
   const styles = useMemo(
     () => StyleSheet.create({
@@ -200,8 +202,8 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
 
   const useNativeDriver = Platform.OS !== 'web';
 
-  const runSaveTransition = (symptomType: string) => {
-    const saved = saveSymptomCard(symptomType);
+  const runSaveTransition = async (symptomType: string) => {
+    const saved = await saveSymptomCard(symptomType);
     if (!saved) return;
 
     Keyboard.dismiss();
@@ -264,7 +266,7 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
           );
         }
 
-        const severityText = card.severity !== null ? `${card.severity}/10 · ${severityLabel(card.severity)}` : 'Not set yet';
+        const severityText = card.severity !== null ? `${card.severity}/10` : 'Not set yet';
         return (
           <View key={card.symptomType} style={styles.backgrounded}>
             <Card onPress={() => setFocusedType(card.symptomType)} accessibilityLabel={`${option.label}, ${card.saved ? 'saved' : 'not saved yet'}. Opens this symptom.`} style={styles.collapsedRow}>
@@ -298,7 +300,7 @@ function SymptomCardDeck({ isEditing, onFinish }: SymptomCardDeckProps) {
       )}
 
       {allSaved && checkmarkType === null && wellnessDone && (
-        <Button label={isEditing ? 'Done' : 'Finish'} onPress={handleDone} accessibilityHint="Finishes this logging session" />
+      <Button label={isEditing ? 'Done' : 'Finish'} onPress={handleDone} accessibilityHint="Finishes this logging session" />
       )}
     </View>
   );
@@ -318,6 +320,11 @@ function SymptomCardEditor({ symptomType, isEditing, otherCards, onSave, onColla
   const card = useLogStore((state) => state.draft.symptomDrafts.find((item) => item.symptomType === symptomType));
   const copyCardDetails = useLogStore((state) => state.copyCardDetails);
   const [showOptional, setShowOptional] = useState(false);
+  const saving = useLogStore(s => s.saving);
+  const saveError = useLogStore(s => s.saveError);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+  const router = useRouter();
   const option = getSymptomOption(symptomType, customSymptoms);
   const showLocation = LOCATION_SYMPTOMS.includes(symptomType);
 
@@ -346,6 +353,7 @@ function SymptomCardEditor({ symptomType, isEditing, otherCards, onSave, onColla
       {copySource && !card.saved && <Button label={`Same details as ${getSymptomOption(copySource.symptomType, customSymptoms).label}`} variant="secondary" onPress={() => copyCardDetails(copySource.symptomType, symptomType)} accessibilityHint="Copies duration, factors, and notes from that symptom — severity stays separate" />}
 
       <SeverityDial symptomType={symptomType} />
+      <ContinuityFields symptomType={symptomType} />
       <View style={styles.divider} />
 
       {showOptional ? (
@@ -360,7 +368,15 @@ function SymptomCardEditor({ symptomType, isEditing, otherCards, onSave, onColla
         <Button label="+ Add duration, factors and notes" variant="secondary" onPress={() => setShowOptional(true)} accessibilityHint="Opens the optional detail fields for this symptom" />
       )}
 
-      <Button label={isEditing ? 'Save changes' : card.saved ? 'Update' : 'Save'} onPress={onSave} disabled={card.severity === null} accessibilityHint={`Saves the ${option.label} entry and moves to the next symptom`} />
+      {isEditing && <Button variant="ghost" label={confirmDelete ? 'Confirm delete this entry' : 'Delete this entry'} onPress={async () => {
+        if (!confirmDelete) { setConfirmDelete(true); return; }
+        const ok = await useLogStore.getState().deleteEntry(card.entryId!);
+        if (ok) { useLogStore.getState().resetDraft(); router.replace('/history'); } else setDeleteError(true);
+      }} accessibilityHint="Deletes only this symptom entry after a second confirmation" />}
+      {confirmDelete && <Button label="Cancel deletion" variant="secondary" onPress={() => setConfirmDelete(false)} />}
+      {deleteError && <Text accessibilityRole="alert" style={theme.typography.body}>Could not delete the entry. Please try again.</Text>}
+      {saveError && <Text accessibilityRole="alert" style={theme.typography.body}>{saveError}</Text>}
+      <Button loading={saving} label={isEditing ? 'Save changes' : card.saved ? 'Update' : 'Save'} onPress={onSave} disabled={card.severity === null} accessibilityHint={`Saves the ${option.label} entry and moves to the next symptom`} />
     </Card>
   );
 }
@@ -416,8 +432,8 @@ function WhenStep() {
   return (
     <View style={styles.stepBody}>
       <StepHeader
-        title="When did it start and end?"
-        subtitle={`Logging for ${formatRelativeDayLabel(occurredAt)}. Set a start time, then optionally set when it ended.`}
+        title="When did you notice it?"
+        subtitle={`Logging for ${formatRelativeDayLabel(occurredAt)}. Exact time is optional. Record duration separately for each symptom.`}
       />
       <TimeRangePicker />
       {existingOnSelectedDay.map((entry) => (
@@ -439,7 +455,7 @@ function AlreadyLoggedBanner({ entry, onEditInstead }: { entry: SymptomEntry; on
   const symptomLabel = getSymptomOption(entry.symptomType, customSymptoms).label;
   return (
     <Card style={styles.banner}>
-      <Text style={styles.text}>Already logged {symptomLabel.toLowerCase()} {dayLabel} at {formatTime(entry.loggedAt)} ({entry.severity}/10). Continue to add another reading, or edit that entry instead.</Text>
+      <Text style={styles.text}>Already logged {symptomLabel.toLowerCase()} {dayLabel} at {formatEntryTiming(entry)} ({entry.severity}/10). Continue to add another reading, or edit that entry instead.</Text>
       <Button label={`Edit ${symptomLabel} entry instead`} variant="secondary" onPress={onEditInstead} accessibilityHint="Loads the existing entry for this symptom on this day so you can update it" />
     </Card>
   );
@@ -507,133 +523,19 @@ const TICK_WIDTH = 56;
 
 function SeverityDial({ symptomType }: { symptomType: string }) {
   const theme = useTheme();
-  const severity = useLogStore((state) => state.draft.symptomDrafts.find((card) => card.symptomType === symptomType)?.severity ?? null);
-  const setSeverityFor = useLogStore((state) => state.setSeverityFor);
-  const setSeverity = (value: number) => setSeverityFor(symptomType, value);
-
-  const [containerWidth, setContainerWidth] = useState(0);
-  const scrollRef = React.useRef<any>(null);
-  const visualValue = severity ?? 5;
-  const scrollX = React.useRef(new Animated.Value(visualValue * TICK_WIDTH)).current;
-  const latestScrollX = React.useRef(visualValue * TICK_WIDTH);
-  const wheelSettleTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const id = scrollX.addListener(({ value }) => { latestScrollX.current = value; });
-    return () => scrollXCleanup(scrollX, id);
-  }, [scrollX]);
-
-  useEffect(() => () => {
-    if (wheelSettleTimer.current) clearTimeout(wheelSettleTimer.current);
-  }, []);
-
-  useEffect(() => {
-    if (containerWidth <= 0) return;
-    const x = visualValue * TICK_WIDTH;
-    latestScrollX.current = x;
-    scrollX.setValue(x);
-    scrollRef.current?.scrollTo({ x, animated: false });
-  }, [containerWidth, visualValue, scrollX]);
-
-  const sidePadding = Math.max(0, containerWidth / 2 - TICK_WIDTH / 2);
-
-  const snapToValue = (rawValue: number, animated: boolean) => {
-    const clamped = Math.max(0, Math.min(10, Math.round(rawValue)));
-    latestScrollX.current = clamped * TICK_WIDTH;
-    setSeverity(clamped);
-    if (animated) scrollRef.current?.scrollTo({ x: latestScrollX.current, animated: true });
-  };
-
-  const handleScrollSettle = () => snapToValue(latestScrollX.current / TICK_WIDTH, false);
-
-  const handleWheel = (event: any) => {
-    if (Platform.OS !== 'web') return;
-    event.preventDefault?.();
-    const delta = event.deltaY ?? 0;
-    const nextX = Math.max(0, Math.min(10 * TICK_WIDTH, latestScrollX.current + delta));
-    latestScrollX.current = nextX;
-    scrollRef.current?.scrollTo({ x: nextX, animated: false });
-    if (wheelSettleTimer.current) clearTimeout(wheelSettleTimer.current);
-    wheelSettleTimer.current = setTimeout(handleScrollSettle, 120);
-  };
-
-  const styles = useMemo(() => StyleSheet.create({
-    stepBody: { gap: theme.spacing.lg },
-    readoutRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: theme.spacing.lg },
-    stepperButton: { width: 44, height: 44, borderRadius: theme.radius.pill, borderWidth: 1.5, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, alignItems: 'center' as const, justifyContent: 'center' as const },
-    badge: { width: 96, height: 96, borderRadius: theme.radius.pill, alignItems: 'center' as const, justifyContent: 'center' as const },
-    badgeNumber: { fontSize: 40, fontFamily: theme.fonts.bold, color: theme.colors.onPrimary },
-    badgeOutOf: { fontSize: 13, fontFamily: theme.fonts.semibold, color: theme.colors.onPrimary, opacity: 0.85, marginTop: -4 },
-    severityLabelText: { ...theme.typography.heading, textAlign: 'center' as const },
-    dialCard: { borderRadius: theme.radius.xl, backgroundColor: theme.colors.surfaceMuted, paddingVertical: theme.spacing.lg, overflow: 'hidden' as const },
-    centerMarker: { position: 'absolute' as const, top: 0, bottom: 0, left: '50%' as const, width: 3, marginLeft: -1.5, borderRadius: 2 },
-    tick: { width: TICK_WIDTH, alignItems: 'center' as const, justifyContent: 'flex-end' as const },
-    tickMark: { width: 3, borderRadius: 2, backgroundColor: theme.colors.border },
-    tickNumber: { marginTop: theme.spacing.xs, fontFamily: theme.fonts.semibold, color: theme.colors.inkMuted },
-    hint: { ...theme.typography.caption, textAlign: 'center' as const },
-  }), [theme]);
-
-  const color = severityColor(visualValue);
-  const hasSelection = severity !== null;
-
-  return (
-    <View style={styles.stepBody}>
-      <StepHeader title="How severe is it?" subtitle="0 means none at all, 10 is the worst imaginable. Move the ruler or use + / − to choose." />
-      <View style={styles.readoutRow}>
-        <Pressable onPress={() => snapToValue(visualValue - 1, true)} style={styles.stepperButton} accessibilityRole="button" accessibilityLabel="Decrease severity"><Ionicons name="remove" size={20} color={theme.colors.ink} /></Pressable>
-        <View style={[styles.badge, { backgroundColor: color }]}><Text style={styles.badgeNumber}>{hasSelection ? severity : '—'}</Text><Text style={styles.badgeOutOf}>/ 10</Text></View>
-        <Pressable onPress={() => snapToValue(visualValue + 1, true)} style={styles.stepperButton} accessibilityRole="button" accessibilityLabel="Increase severity"><Ionicons name="add" size={20} color={theme.colors.ink} /></Pressable>
-      </View>
-      <Text style={[styles.severityLabelText, { color }]}>{hasSelection ? severityLabel(severity) : 'Choose a severity'}</Text>
-
-      <View
-        style={styles.dialCard}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-        // @ts-expect-error react-native-web forwards onWheel.
-        onWheel={handleWheel}
-        accessibilityRole="adjustable"
-        accessibilityLabel={hasSelection ? `Severity, ${severity} out of 10, ${severityLabel(severity)}` : 'Severity, not set, ruler centered at 5'}
-        accessibilityValue={hasSelection ? { min: 0, max: 10, now: severity } : { min: 0, max: 10, text: 'Not set; centered at 5' }}
-        accessibilityActions={[{ name: 'increment', label: 'Increase severity' }, { name: 'decrement', label: 'Decrease severity' }]}
-        onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'increment') snapToValue(visualValue + 1, true);
-          if (event.nativeEvent.actionName === 'decrement') snapToValue(visualValue - 1, true);
-        }}
-      >
-        <View pointerEvents="none" style={[styles.centerMarker, { backgroundColor: color }]} />
-        {containerWidth > 0 && (
-          <Animated.ScrollView
-            ref={scrollRef}
-            horizontal
-            bounces={false}
-            overScrollMode="never"
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={TICK_WIDTH}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: sidePadding }}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={handleScrollSettle}
-            onScrollEndDrag={(e) => { if (Math.abs(e.nativeEvent.velocity?.x ?? 0) < 0.05) handleScrollSettle(); }}
-          >
-            {SEVERITY_VALUES.map((value) => {
-              const distance = scrollX.interpolate({ inputRange: [(value - 1) * TICK_WIDTH, value * TICK_WIDTH, (value + 1) * TICK_WIDTH], outputRange: [0.35, 1, 0.35], extrapolate: 'clamp' });
-              const scale = scrollX.interpolate({ inputRange: [(value - 1) * TICK_WIDTH, value * TICK_WIDTH, (value + 1) * TICK_WIDTH], outputRange: [0.75, 1.15, 0.75], extrapolate: 'clamp' });
-              const isMajor = value % 5 === 0;
-              const isSelected = hasSelection && value === severity;
-              return (
-                <Pressable key={value} onPress={() => snapToValue(value, true)} style={styles.tick}>
-                  <Animated.View style={[styles.tickMark, { height: isMajor ? 28 : 18, opacity: distance, backgroundColor: isSelected ? color : theme.colors.border }]} />
-                  <Animated.Text style={[styles.tickNumber, { fontSize: 13, opacity: distance, transform: [{ scale }], color: isSelected ? color : theme.colors.inkMuted }]}>{value}</Animated.Text>
-                </Pressable>
-              );
-            })}
-          </Animated.ScrollView>
-        )}
-      </View>
-      <Text style={styles.hint}>Scroll the ruler, tap a number, or use + / − to adjust.</Text>
+  const severity = useLogStore(s => s.draft.symptomDrafts.find(c => c.symptomType === symptomType)?.severity ?? null);
+  const set = useLogStore(s => s.setSeverityFor);
+  return <View style={{ gap: 12 }}>
+    <Text style={theme.typography.heading}>How severe is it?</Text>
+    <Text style={theme.typography.body}>0 means none; 10 is the worst imaginable. Tap a number.</Text>
+    <Text style={theme.typography.heading} accessibilityLiveRegion="polite">{severity === null ? 'Not selected' : `${severity} / 10`}</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {Array.from({ length: 11 }, (_, value) => <Chip key={value} label={String(value)} selected={severity === value} onToggle={() => set(symptomType, value)} />)}
     </View>
-  );
+    <View accessible accessibilityRole="adjustable" accessibilityLabel="Severity" accessibilityValue={{ min: 0, max: 10, ...(severity === null ? { text: 'Not selected' } : { now: severity }) }} accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]} onAccessibilityAction={e => set(symptomType, Math.max(0, Math.min(10, (severity ?? 5) + (e.nativeEvent.actionName === 'increment' ? 1 : -1))))}>
+      <Text style={theme.typography.body}>Adjust severity with accessibility controls</Text>
+    </View>
+  </View>;
 }
 
 function LocationSection({ symptomType }: { symptomType: string }) {
@@ -652,8 +554,10 @@ function DurationSection({ symptomType }: { symptomType: string }) {
   const exactDuration = durationKey?.startsWith('exact_') ? DURATION_OPTIONS.find((option) => option.key === durationKey) : null;
   return (
     <View style={styles.stepBody}>
-      <StepHeader title="How long has it lasted?" subtitle="Your start/end range is used by default. Choose below only if this symptom lasted a different amount of time." />
-      {exactDuration && <Text style={styles.rangeNote}>From your time range: {exactDuration.label}</Text>}
+      <StepHeader title="How long has it lasted?" subtitle="Optional: total time with this symptom, excluding gaps. This is separate from the observation window." />
+      {exactDuration && <Text style={styles.rangeNote}>Exact symptom duration: {exactDuration.label}</Text>}
+      <TextInput accessibilityLabel="Exact symptom duration in minutes, optional" keyboardType="number-pad" style={{ ...theme.typography.body, minHeight: 48, padding: 12, borderWidth: 1, borderColor: theme.colors.inkMuted }} value={durationKey?.startsWith('exact_') ? durationKey.slice(6) : ''} onChangeText={v => { if (v === '' || (/^[1-9]\d*$/.test(v) && Number.isSafeInteger(Number(v)) && Number(v) <= 100000)) setDurationKeyFor(symptomType, v ? `exact_${v}` : ''); }} />
+      <SelectCard label="Not sure / not provided" selected={!durationKey} onPress={() => setDurationKeyFor(symptomType, '')} />
       {APPROX_DURATION_OPTIONS.map((option) => <SelectCard key={option.key} label={option.label} selected={durationKey === option.key} onPress={() => setDurationKeyFor(symptomType, option.key)} />)}
     </View>
   );
@@ -748,7 +652,7 @@ function SuccessView({ entries: savedEntries, isEditing, onDone, onLogAnother }:
   }), [theme]);
   const totalEntries = useLogStore((state) => state.entries.length);
   const allEntries = useLogStore((state) => state.entries);
-  const streak = getStreakDays(allEntries);
+
   const customSymptoms = useCustomSymptomStore((state) => state.customSymptoms);
   const isMultiple = savedEntries.length > 1;
   const title = isEditing ? 'Entry updated' : isMultiple ? `${savedEntries.length} symptoms logged` : 'Symptom logged';
@@ -758,7 +662,7 @@ function SuccessView({ entries: savedEntries, isEditing, onDone, onLogAnother }:
       <View style={styles.successHeader}>
         <View style={styles.successCircle}><Ionicons name="checkmark" size={32} color={theme.colors.success} /></View>
         <Text style={styles.successTitle}>{title}</Text>
-        {!isEditing && streak >= 3 ? <Text style={styles.streakText}>{streak}-day streak — consistent logs make your reports far more useful.</Text> : null}
+
       </View>
 
       {savedEntries.map((entry) => {
@@ -769,10 +673,10 @@ function SuccessView({ entries: savedEntries, isEditing, onDone, onLogAnother }:
           <Card key={entry.id} style={styles.summaryCard}>
             {isMultiple && <Text style={styles.summarySymptom}>{option.label}</Text>}
             {!isMultiple && <SummaryRow label="Symptom" value={option.label} />}
-            <SummaryRow label="Severity" value={`${entry.severity} / 10 · ${severityLabel(entry.severity)}`} />
+            <SummaryRow label="Severity" value={`${entry.severity} / 10`} />
             {entry.qualities && entry.qualities.length > 0 && <SummaryRow label="Feels like" value={entry.qualities.join(', ')} />}
             {entry.bodyRegions && entry.bodyRegions.length > 0 && <SummaryRow label="Location" value={entry.bodyRegions.map(getRegionLabel).join(', ')} />}
-            <SummaryRow label="Duration" value={duration ? duration.label : 'Not set'} />
+            <SummaryRow label="Duration" value={formatEntryDuration(entry)} /><SummaryRow label="Timing" value={formatEntryTiming(entry)} /><SummaryRow label="Continuity" value={formatContinuity(entry)} />
             <SummaryRow label="Factors" value={factorCount > 0 ? `${factorCount} selected` : 'None'} />
           </Card>
         );

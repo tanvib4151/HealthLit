@@ -144,6 +144,7 @@ export function buildSymptomFindings(events: HealthEvent[]): Finding[] {
         topQualities: qualities.slice(0, 3).map((item) => `${item.label}|${item.count}`),
         topRegions: regions.slice(0, 3).map((item) => `${item.label}|${item.count}`),
         topDurations: durations.slice(0, 3).map((item) => `${item.label}|${item.count}`),
+        observationDescriptions: [...new Set(groupEvents.map(e => e.observationDescription).filter((v): v is string => !!v))],
         durationMissing: groupEvents.filter((event) => event.durationLabel === null).length,
       },
       entryIds: groupEvents.map((event) => event.entryId),
@@ -210,7 +211,7 @@ function buildFactorAnalysis(events: HealthEvent[]): {
   groups.forEach((groupEvents, key) => {
     if (groupEvents.length < MIN_ENTRIES_FOR_FACTOR_ANALYSIS) return;
 
-    const pairable = groupEvents.map(toPairable);
+    const pairable = groupEvents.filter(event => event.exactTiming !== false).map(toPairable);
     const label = groupEvents[0].symptomLabel;
 
     const channels: {
@@ -453,6 +454,7 @@ export function buildTimeFindings(events: HealthEvent[]): Finding[] {
       morning: [], afternoon: [], evening: [], night: [],
     };
     for (const event of groupEvents) {
+      if (event.timingKnown === false) continue;
       if (event.hour >= 5 && event.hour < 12) buckets.morning.push(event);
       else if (event.hour >= 12 && event.hour < 17) buckets.afternoon.push(event);
       else if (event.hour >= 17 && event.hour < 22) buckets.evening.push(event);
@@ -461,7 +463,8 @@ export function buildTimeFindings(events: HealthEvent[]): Finding[] {
     const [bucketName, bucketEvents] = Object.entries(buckets).sort(
       (a, b) => b[1].length - a[1].length,
     )[0];
-    const proportion = bucketEvents.length / groupEvents.length;
+    const timedCount = groupEvents.filter(e => e.timingKnown !== false).length;
+    const proportion = timedCount ? bucketEvents.length / timedCount : 0;
 
     if (proportion >= 0.6 && bucketEvents.length >= 5) {
       findings.push({
@@ -471,7 +474,7 @@ export function buildTimeFindings(events: HealthEvent[]): Finding[] {
         facts: {
           bucket: bucketName,
           count: bucketEvents.length,
-          total: groupEvents.length,
+          total: timedCount,
           percent: Math.round(proportion * 100),
         },
         entryIds: bucketEvents.map((event) => event.entryId),

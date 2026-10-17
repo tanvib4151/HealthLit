@@ -1,3 +1,4 @@
+import { entryDateKey } from './entryStats';
 /**
  * Chart data builders (Step 5). Pure transforms from entries to
  * plottable series — no React, no rendering. Day math is device-local
@@ -29,7 +30,7 @@ export function buildDailySeries(
 ): DailySeries {
   const maxByDay = new Map<string, number>();
   for (const entry of entries) {
-    const key = dateKeyLocal(entry.loggedAt);
+    const key = entryDateKey(entry);
     const current = maxByDay.get(key);
     if (current === undefined || entry.severity > current) {
       maxByDay.set(key, entry.severity);

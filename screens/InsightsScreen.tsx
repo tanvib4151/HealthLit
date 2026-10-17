@@ -1,3 +1,5 @@
+import { getSymptomOption } from '../utils/symptoms';
+import { observationCoverage } from '../utils/observation';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -52,12 +54,12 @@ export default function InsightsScreen() {
 
   const styles = useMemo(() => StyleSheet.create({
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-    backButton: { width: 40, height: 40, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadows.card },
+    backButton: { width: 48, height: 48, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadows.card },
     headerTitle: { ...theme.typography.title },
     customRangeBlock: { gap: theme.spacing.sm, paddingHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md },
     customRangeLabel: { ...theme.typography.overline, textTransform: 'uppercase' as const },
     customRangeSummary: { ...theme.typography.bodySecondary },
-    rangeRow: { flexDirection: 'row', gap: theme.spacing.sm },
+    rangeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
     scrollContent: { gap: theme.spacing.md },
     emptyCard: { gap: theme.spacing.md },
     emptyTitle: { ...theme.typography.heading },
@@ -99,6 +101,15 @@ export default function InsightsScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Recorded observations</Text>
+          <Text style={styles.emptyText}>{observationCoverage(entries.filter(e => new Date(e.loggedAt) >= rangeStart && new Date(e.loggedAt) <= rangeEnd))}</Text>
+          {[...new Set(entries.map(e => e.symptomType))].map(type => {
+            const group = entries.filter(e => e.symptomType === type && new Date(e.loggedAt) >= rangeStart && new Date(e.loggedAt) <= rangeEnd);
+            return group.length ? <Text key={type} style={styles.emptyText}>{getSymptomOption(type, customSymptoms).label}: {group.length} observations; numerical severity {Math.min(...group.map(e => e.severity))}–{Math.max(...group.map(e => e.severity))}/10.</Text> : null;
+          })}
+          <Text style={styles.emptyText}>Time patterns use only records with known timing. Factor comparisons need repeated observations of the same symptom with and without a recorded factor. An omitted factor does not confirm absence. Associations do not establish causes or diagnoses.</Text>
+        </Card>
         {entries.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No entries yet</Text>
@@ -112,7 +123,7 @@ export default function InsightsScreen() {
         ) : (
           <>
             {reliefs.length > 0 && <Card style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>What Helps Most</Text>
+              <Text style={styles.sectionTitle}>Reported relief associations</Text>
               {reliefs.map((corr) => <View key={`${corr.symptomLabel}:${corr.factor}`} style={styles.correlationItem}>
                 <View style={styles.correlationHeader}><Text style={styles.correlationFactor}>{corr.factor}</Text><View style={styles.badge}><Text style={styles.badgeText}>{corr.confidenceLabel} · {corr.support}</Text></View></View>
                 <Text style={styles.correlationDescription}>{describeCorrelation(corr)}</Text>
@@ -120,7 +131,7 @@ export default function InsightsScreen() {
               </View>)}
             </Card>}
             {triggers.length > 0 && <Card style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Common Triggers</Text>
+              <Text style={styles.sectionTitle}>Reported factor associations</Text>
               {triggers.map((corr) => <View key={`${corr.symptomLabel}:${corr.factor}`} style={styles.correlationItem}>
                 <View style={styles.correlationHeader}><Text style={styles.correlationFactor}>{corr.factor}</Text><View style={styles.badge}><Text style={styles.badgeText}>{corr.confidenceLabel} · {corr.support}</Text></View></View>
                 <Text style={styles.correlationDescription}>{describeCorrelation(corr)}</Text>
@@ -131,7 +142,8 @@ export default function InsightsScreen() {
         )}
         {checked.length > 0 && <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Also Checked</Text>
-          <Text style={styles.correlationDescription}>These were tested against your readings and did not show a consistent relationship: {[...new Set(checked.map((item) => item.factor.toLowerCase()))].slice(0, 8).join(', ')}.</Text>
+          <Text style={styles.correlationDescription}>For each factor, the comparison has its own limitations.</Text>
+          {checked.map(item => <Text key={`${item.symptomLabel}:${item.factor}`} style={styles.correlationDescription}>{item.symptomLabel} / {item.factor}: {item.reason === 'tooFewPaired' ? 'Not enough comparable follow-up readings with exact times, with and without this recorded factor.' : item.reason === 'differenceTooSmall' ? 'The recorded difference was too small to describe as a pattern.' : 'The comparison was not consistent across the available readings.'}</Text>)}
           <Text style={styles.correlationDescription}>Not finding a pattern is a real result — it usually means there isn't enough consistent data yet, not that nothing is happening.</Text>
         </Card>}
       </ScrollView>

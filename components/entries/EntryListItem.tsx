@@ -1,3 +1,4 @@
+import { describeObservation } from '../../utils/observation';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,7 +82,7 @@ export function EntryListItem({ entry, onPress }: EntryListItemProps) {
     qualities.length > 0 ? `, feels ${qualities.join(', ')}` : ''
   }, severity ${entry.severity} out of 10, ${severityLabel(
     entry.severity,
-  )}, at ${formatTime(entry.loggedAt)}`;
+  )}, ${describeObservation(entry)}`;
 
   const content = (
     <>
@@ -94,7 +95,7 @@ export function EntryListItem({ entry, onPress }: EntryListItemProps) {
           {qualitiesText ? <Text style={styles.qualities}>{qualitiesText}</Text> : null}
         </Text>
         <Text style={styles.subtitle}>
-          {formatTime(entry.loggedAt)} · {severityLabel(entry.severity)}
+          {describeObservation(entry)}
         </Text>
       </View>
       <View style={styles.severityPill}>

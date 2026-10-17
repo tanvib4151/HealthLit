@@ -92,7 +92,7 @@ const lightColors: Colors = {
   border: '#ECE6F6',
 
   // Brand
-  primary: '#7C6BD6',
+  primary: '#5745A5',
   primaryPressed: '#6A59C4',
   primarySoft: '#EDE8FB',
   accentPink: '#F09CBB',
@@ -101,17 +101,17 @@ const lightColors: Colors = {
   // Text
   ink: '#241F3A',
   inkSecondary: '#6E6887',
-  inkMuted: '#9C96B4',
+  inkMuted: '#706783',
   onPrimary: '#FFFFFF',
 
   // Semantic
   info: '#5B9BD8',
   infoSoft: '#E7F1FB',
-  success: '#3FAF8C',
+  success: '#237458',
   successSoft: '#E2F5EE',
   warning: '#DE9A36',
   warningSoft: '#FBF0DC',
-  danger: '#D65C77',
+  danger: '#A93450',
   dangerSoft: '#FAE6EC',
 };
 
@@ -123,7 +123,7 @@ const darkColors: Colors = {
   border: '#3A3348',
 
   // Brand — brightened slightly so it still pops against a dark surface
-  primary: '#9683E8',
+  primary: '#AD9BF5',
   primaryPressed: '#A996EE',
   primarySoft: '#332C4A',
   accentPink: '#F4AFC7',
@@ -132,7 +132,7 @@ const darkColors: Colors = {
   // Text
   ink: '#F1EEF9',
   inkSecondary: '#B7B0CF',
-  inkMuted: '#8A82A6',
+  inkMuted: '#A49ABB',
   onPrimary: '#1A1626',
 
   // Semantic — dark-tinted "soft" backgrounds instead of light pastels

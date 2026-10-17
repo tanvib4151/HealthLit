@@ -1,3 +1,5 @@
+import { entryDateKey } from '../utils/entryStats';
+import { exportEntriesCsv } from '../services/csvExportService';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -34,7 +36,7 @@ interface DayGroup {
 function groupByDay(entries: SymptomEntry[]): DayGroup[] {
   const groups: DayGroup[] = [];
   for (const entry of entries) {
-    const dateKey = dateKeyLocal(entry.loggedAt);
+    const dateKey = entryDateKey(entry);
     const last = groups[groups.length - 1];
     if (last && last.dateKey === dateKey) last.entries.push(entry);
     else groups.push({ dateKey, entries: [entry] });
@@ -75,7 +77,7 @@ export default function HistoryScreen() {
   const dayGroups = useMemo(() => groupByDay(entries), [entries]);
   const focusedDateKey = typeof params.date === 'string' ? params.date : null;
   const focusedEntries = useMemo(
-    () => focusedDateKey ? entries.filter((entry) => dateKeyLocal(entry.loggedAt) === focusedDateKey) : [],
+    () => focusedDateKey ? entries.filter((entry) => entryDateKey(entry) === focusedDateKey) : [],
     [entries, focusedDateKey],
   );
 
@@ -96,9 +98,9 @@ export default function HistoryScreen() {
 
   const styles = useMemo(() => StyleSheet.create({
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm },
-    backButton: { width: 40, height: 40, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadows.card },
+    backButton: { width: 48, height: 48, borderRadius: theme.radius.pill, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', ...theme.shadows.card },
     headerTitle: { ...theme.typography.title },
-    rangeRow: { flexDirection: 'row', gap: theme.spacing.sm },
+    rangeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm },
     sectionCard: { gap: theme.spacing.md },
     sectionTitle: { ...theme.typography.heading },
     sectionCaption: { ...theme.typography.bodySecondary },
@@ -179,8 +181,13 @@ export default function HistoryScreen() {
           <Card style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Doctor Report</Text>
             <Text style={styles.sectionCaption}>A clean PDF of the last {rangeDays} days — summary, symptom frequency, factors, and every entry in that range.</Text>
+            <Button label="Export all raw records (CSV)" loading={exporting} onPress={async () => {
+              setExporting(true); setExportMessage(null);
+              const result = await exportEntriesCsv(entries, customSymptoms);
+              setExportMessage(result.message); setExportFailed(!result.ok); setExporting(false);
+            }} accessibilityHint="Shares every saved symptom record, including notes, using the device share sheet" />
             <Button label="Export PDF report" onPress={handleExport} loading={exporting} accessibilityHint="Creates a PDF report you can share with your doctor" />
-            {exportMessage !== null && <Text style={[styles.exportStatus, exportFailed && styles.exportStatusError]} accessibilityLiveRegion="polite">{exportMessage}</Text>}
+            {exportMessage !== null && <Text accessibilityLiveRegion="polite" style={[styles.exportStatus, exportFailed && styles.exportStatusError]}>{exportMessage}</Text>}
           </Card>
 
           <Card style={styles.sectionCard}>

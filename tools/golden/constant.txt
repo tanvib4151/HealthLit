@@ -25,18 +25,21 @@ Fatigue was recorded less often — 30 days, 30 readings, typically 6/10 and ran
 Inflammation was recorded less often — 30 days, 30 readings, typically 6/10 and ranging from 5 to 6.
 
 FREQUENCY AND DURATION
-90 readings recorded on 30 of 30 days.
-Pain was recorded on 30 days, most often lasting most of the day (30).
-Fatigue was recorded on 30 days, most often lasting most of the day (30).
-Inflammation was recorded on 30 days, most often lasting most of the day (30).
+90 readings recorded on 30 of 30 days. Unlogged days are unknown, not symptom-free.
+Pain: Continuity not sure.
+Pain was recorded on 30 days, most often lasting approximate / legacy: 600 min of symptoms (30).
+Fatigue: Continuity not sure.
+Fatigue was recorded on 30 days, most often lasting approximate / legacy: 600 min of symptoms (30).
+Inflammation: Continuity not sure.
+Inflammation was recorded on 30 days, most often lasting approximate / legacy: 600 min of symptoms (30).
 
 PATTERNS AND POSSIBLE TRIGGERS
 Readings of pain and fatigue were recorded almost entirely in the morning (60 of 60) — which may reflect when they are most noticeable, or simply when logging fits the day.
 These describe what was recorded close together in time. They are observations from self-reported entries, not established relationships.
 Also checked, with no consistent relationship found: weather and rest.
 
-FACTORS THAT IMPROVE THE CONDITION
-Recorded as helping, but with no measurable difference in the readings that followed: rest (45).
+REPORTED RELIEF FACTORS
+Recorded as helping: rest (45). The available follow-up readings do not support a consistent comparison; this does not establish whether these factors helped.
 
 OTHER SYMPTOMS EXPERIENCED ALONGSIDE
 Fatigue was recorded on 30 of the 30 days that pain was recorded (100%).

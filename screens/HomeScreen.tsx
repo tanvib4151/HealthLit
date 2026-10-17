@@ -1,8 +1,8 @@
+import { entryDateKey } from '../utils/entryStats';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { DayCarousel } from '../components/ui/DayCarousel';
 import { EntryListItem } from '../components/entries/EntryListItem';
@@ -10,21 +10,12 @@ import { Card } from '../components/ui/Card';
 import { WellnessSupportCard } from '../components/wellness/WellnessSupportCard';
 import { FadeInView } from '../components/ui/FadeInView';
 import { Screen } from '../components/ui/Screen';
-import { TrendLineChart } from '../components/charts/TrendLineChart';
 import { useLogStore } from '../store/logStore';
-import { getWeekComparison } from '../utils/comparisonStats';
 import {
   dateKeyFromDate,
-  dateKeyLocal,
   formatRelativeDayLabel,
-  getStreakDays,
-  getTodayStats,
-  isStreakMilestone,
 } from '../utils/entryStats';
-import { buildDailySeries } from '../utils/trendData';
 import { useTheme } from '../hooks/useTheme';
-
-const HERO_GRADIENT = ['#E79FC4', '#F2AE8C'] as const;
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -48,14 +39,9 @@ export default function HomeScreen() {
   const selectedLogDate = useLogStore((state) => state.draft.occurredAt);
   const setSelectedLogDate = useLogStore((state) => state.setOccurredAt);
 
-  const todayStats = useMemo(() => getTodayStats(entries), [entries]);
-  const streak = useMemo(() => getStreakDays(entries), [entries]);
-  const atMilestone = useMemo(() => isStreakMilestone(streak), [streak]);
-  const comparison = useMemo(() => getWeekComparison(entries), [entries]);
-  const weekSeries = useMemo(() => buildDailySeries(entries, 7), [entries]);
   const selectedDateKey = dateKeyFromDate(selectedLogDate);
   const selectedDayEntries = useMemo(
-    () => entries.filter((entry) => dateKeyLocal(entry.loggedAt) === selectedDateKey),
+    () => entries.filter((entry) => entryDateKey(entry) === selectedDateKey),
     [entries, selectedDateKey],
   );
   const selectedDayLabel = formatRelativeDayLabel(selectedLogDate);
@@ -68,9 +54,9 @@ export default function HomeScreen() {
       gap: theme.spacing.xs,
       ...theme.shadows.card,
     },
-    heroGreeting: { ...theme.typography.bodySecondary, color: 'rgba(255, 255, 255, 0.9)' },
+    heroGreeting: { ...theme.typography.bodySecondary, color: theme.colors.onPrimary },
     heroTitle: { ...theme.typography.title, color: theme.colors.onPrimary },
-    heroDate: { ...theme.typography.caption, color: 'rgba(255, 255, 255, 0.9)' },
+    heroDate: { ...theme.typography.caption, color: theme.colors.onPrimary },
     statRow: { flexDirection: 'row', gap: theme.spacing.sm, marginTop: theme.spacing.lg },
     dateCard: { gap: theme.spacing.sm },
     dateCardLabel: { ...theme.typography.caption, fontFamily: theme.fonts.semibold },
@@ -101,7 +87,7 @@ export default function HomeScreen() {
     },
     quickLogText: { flex: 1, gap: 2 },
     quickLogTitle: { ...theme.typography.body, fontFamily: theme.fonts.bold, color: theme.colors.onPrimary },
-    quickLogSubtitle: { ...theme.typography.caption, color: 'rgba(255, 255, 255, 0.85)' },
+    quickLogSubtitle: { ...theme.typography.caption, color: theme.colors.onPrimary },
     shortcutRow: { flexDirection: 'row', gap: theme.spacing.md },
     shortcutCard: {
       flex: 1,
@@ -150,29 +136,42 @@ export default function HomeScreen() {
 
   return (
     <Screen showHeader>
+      <FadeInView delay={80}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${selectedDayEntries.length > 0 ? 'Add another symptom entry to' : 'Log symptoms for'} ${selectedDayLabel}`}
+          accessibilityHint="Opens the guided symptom check-in"
+          onPress={() => router.push('/log')}
+          style={({ pressed }) => [styles.quickLog, pressed && styles.quickLogPressed]}
+        >
+          <View style={styles.quickLogIcon}><Ionicons name="add" size={22} color={theme.colors.onPrimary} /></View>
+          <View style={styles.quickLogText}>
+            <Text style={styles.quickLogTitle}>
+              {selectedDayEntries.length > 0
+                ? `Add to ${selectedDayLabel}’s Log`
+                : isToday
+                  ? "Log Today's Symptoms"
+                  : `Log Symptoms for ${selectedDayLabel}`}
+            </Text>
+            <Text style={styles.quickLogSubtitle}>
+              {selectedDayEntries.length > 0 ? 'Keeps this entry on the selected day' : 'Takes about 2 minutes'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.onPrimary} />
+        </Pressable>
+      </FadeInView>
+
+
       <FadeInView>
-        <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <View style={[styles.hero, { backgroundColor: theme.colors.primary }]}>
           <Text style={styles.heroGreeting}>{getGreeting()}</Text>
           <Text style={styles.heroTitle}>{entries.length > 0 ? 'Welcome back' : 'Welcome to HealthLit'}</Text>
           <Text style={styles.heroDate}>{getFormattedDate()}</Text>
-          <View style={styles.statRow}>
-            <StatTile value={todayStats.maxSeverity === null ? '—' : String(todayStats.maxSeverity)} unit="/10" label="Today's Pain" />
-            <StatTile value={String(todayStats.count)} unit={todayStats.count === 1 ? 'symptom' : 'symptoms'} label="Logged" />
-            <StatTile value={String(streak)} unit={streak === 1 ? 'day' : 'days'} label="Streak" />
-          </View>
-        </LinearGradient>
+
+        </View>
       </FadeInView>
 
       <WellnessSupportCard />
-
-      {atMilestone && (
-        <FadeInView delay={40}>
-          <View style={styles.milestoneBanner}>
-            <Ionicons name="sparkles-outline" size={18} color={theme.colors.success} />
-            <Text style={styles.milestoneText}>{streak}-day logging streak — nice consistency.</Text>
-          </View>
-        </FadeInView>
-      )}
 
       <FadeInView delay={60}>
         <View style={styles.dateCard}>
@@ -205,7 +204,7 @@ export default function HomeScreen() {
           </View>
 
           {selectedDayEntries.length === 0 ? (
-            <Text style={styles.emptyText}>Nothing logged for {selectedDayLabel.toLowerCase()}.</Text>
+            <Text style={styles.emptyText}>Nothing logged for {selectedDayLabel.toLowerCase()}. Unlogged days are unknown, not symptom-free.</Text>
           ) : (
             selectedDayEntries.slice(0, 3).map((entry) => (
               <EntryListItem
@@ -222,31 +221,6 @@ export default function HomeScreen() {
             </Pressable>
           )}
         </Card>
-      </FadeInView>
-
-      <FadeInView delay={80}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${selectedDayEntries.length > 0 ? 'Add another symptom entry to' : 'Log symptoms for'} ${selectedDayLabel}`}
-          accessibilityHint="Opens the guided symptom check-in"
-          onPress={() => router.push('/log')}
-          style={({ pressed }) => [styles.quickLog, pressed && styles.quickLogPressed]}
-        >
-          <View style={styles.quickLogIcon}><Ionicons name="add" size={22} color={theme.colors.onPrimary} /></View>
-          <View style={styles.quickLogText}>
-            <Text style={styles.quickLogTitle}>
-              {selectedDayEntries.length > 0
-                ? `Add to ${selectedDayLabel}’s Log`
-                : isToday
-                  ? "Log Today's Symptoms"
-                  : `Log Symptoms for ${selectedDayLabel}`}
-            </Text>
-            <Text style={styles.quickLogSubtitle}>
-              {selectedDayEntries.length > 0 ? 'Keeps this entry on the selected day' : 'Takes about 2 minutes'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.colors.onPrimary} />
-        </Pressable>
       </FadeInView>
 
       <FadeInView delay={140}>
@@ -273,94 +247,6 @@ export default function HomeScreen() {
         </Pressable>
       </FadeInView>
 
-      <FadeInView delay={160}>
-        <Card style={styles.trendCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>7-Day Pain Trend</Text>
-            <View style={styles.rangePill}><Text style={styles.rangePillText}>This week</Text></View>
-          </View>
-          {weekSeries.hasData ? (
-            <TrendLineChart values={weekSeries.values} labels={weekSeries.labels} accessibilityLabel="Pain severity trend over the last 7 days" />
-          ) : (
-            <Text style={styles.emptyText}>Log symptoms for a few days and your weekly trend will appear here.</Text>
-          )}
-        </Card>
-      </FadeInView>
-
-      {comparison.thisWeek.count > 0 || comparison.lastWeek.count > 0 ? (
-        <FadeInView delay={200}>
-          <Card style={styles.comparisonCard}>
-            <Text style={styles.cardTitle}>This Week vs Last Week</Text>
-            <View style={styles.comparisonRow}>
-              <ComparisonTile label="Avg severity" thisValue={comparison.thisWeek.avgSeverity === null ? '—' : comparison.thisWeek.avgSeverity.toFixed(1)} delta={comparison.severityDelta} lowerIsBetter />
-              <ComparisonTile label="Entries logged" thisValue={String(comparison.thisWeek.count)} delta={comparison.countDelta} lowerIsBetter={false} />
-            </View>
-          </Card>
-        </FadeInView>
-      ) : null}
     </Screen>
-  );
-}
-
-function StatTile({ value, unit, label }: { value: string; unit: string; label: string }) {
-  const theme = useTheme();
-  const styles = useMemo(() => StyleSheet.create({
-    statTile: { flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.22)', borderRadius: theme.radius.lg, paddingVertical: theme.spacing.md, paddingHorizontal: theme.spacing.sm, alignItems: 'center', gap: 2 },
-    statLabel: { ...theme.typography.caption, color: 'rgba(255, 255, 255, 0.95)', fontSize: 12 },
-    statValue: { fontSize: 24, lineHeight: 28, fontFamily: theme.fonts.bold, color: theme.colors.onPrimary },
-    statUnit: { ...theme.typography.caption, color: 'rgba(255, 255, 255, 0.95)', fontSize: 11 },
-  }), [theme]);
-
-  return (
-    <View style={styles.statTile} accessible accessibilityLabel={`${label}: ${value} ${unit}`}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statUnit}>{unit}</Text>
-    </View>
-  );
-}
-
-function ComparisonTile({
-  label,
-  thisValue,
-  delta,
-  lowerIsBetter,
-}: {
-  label: string;
-  thisValue: string;
-  delta: number | null;
-  lowerIsBetter: boolean;
-}) {
-  const theme = useTheme();
-  const styles = useMemo(() => StyleSheet.create({
-    comparisonTile: { flex: 1, gap: 2 },
-    comparisonLabel: { ...theme.typography.caption },
-    comparisonValue: { fontSize: 22, lineHeight: 26, fontFamily: theme.fonts.bold, color: theme.colors.ink },
-    comparisonDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    comparisonDeltaText: { ...theme.typography.caption, fontSize: 12 },
-  }), [theme]);
-
-  const rounded = delta === null ? null : Math.round(delta * 10) / 10;
-  const isFlat = rounded === null || rounded === 0;
-  const isUp = !isFlat && rounded > 0;
-  const deltaColor = isFlat
-    ? theme.colors.inkMuted
-    : lowerIsBetter
-      ? isUp
-        ? theme.colors.danger
-        : theme.colors.success
-      : theme.colors.inkSecondary;
-  const deltaIcon = isFlat ? 'remove-outline' : isUp ? 'arrow-up-outline' : 'arrow-down-outline';
-  const deltaText = isFlat ? 'No change' : `${isUp ? '+' : ''}${rounded} vs last week`;
-
-  return (
-    <View style={styles.comparisonTile}>
-      <Text style={styles.comparisonLabel}>{label}</Text>
-      <Text style={styles.comparisonValue}>{thisValue}</Text>
-      <View style={styles.comparisonDeltaRow}>
-        <Ionicons name={deltaIcon} size={12} color={deltaColor} />
-        <Text style={[styles.comparisonDeltaText, { color: deltaColor }]}>{deltaText}</Text>
-      </View>
-    </View>
   );
 }

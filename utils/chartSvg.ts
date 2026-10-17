@@ -189,13 +189,7 @@ export function renderChartSvg(chart: ChartSpec): string {
 }
 
 /** Print-safe severity colours, independent of the app theme. */
-export function severityPrintColor(value: number): string {
-  if (value <= 2) return '#8FCFB6';
-  if (value <= 4) return '#A8C8E8';
-  if (value <= 6) return '#E8C88A';
-  if (value <= 8) return '#E0A07C';
-  return '#D0768C';
-}
+export function severityPrintColor(_value: number): string { return '#5745A5'; }
 
 /** A chart plus its data table, as one non-breaking block. */
 export function renderChartBlock(chart: ChartSpec): string {

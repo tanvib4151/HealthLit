@@ -25,6 +25,9 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
+      - name: Regression tests
+        run: npm test && npm run test:story
+
       - name: Expo Doctor
         run: npx expo-doctor
 

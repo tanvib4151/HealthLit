@@ -432,7 +432,7 @@ export function realizeDataQuality(finding: Finding): Sentence {
 
   return sentence(
     `${entryCount} ${plural(entryCount, 'reading')} recorded on ${daysLogged} of ` +
-      `${daysInRange} ${plural(daysInRange, 'day')}.${durationNote}`,
+      `${daysInRange} ${plural(daysInRange, 'day')}.${durationNote} Unlogged days are unknown, not symptom-free.`,
     finding.entryIds,
     [finding.id],
   );

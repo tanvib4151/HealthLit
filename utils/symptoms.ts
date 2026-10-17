@@ -37,36 +37,9 @@ export function getSymptomOption(type: string, customSymptoms: CustomSymptom[] =
   return { type, label: 'Other', icon: 'help-circle-outline', tint: colors.inkMuted, tintSoft: colors.surfaceMuted };
 }
 
-export function severityLabel(severity: number): string {
-  if (severity === 0) return 'None';
-  if (severity <= 3) return 'Mild';
-  if (severity <= 6) return 'Moderate';
-  return 'Severe';
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const value = parseInt(hex.slice(1), 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-function lerpColor(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = hexToRgb(a);
-  const [br, bg, bb] = hexToRgb(b);
-  return rgbToHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
-}
-
-const SEVERITY_LOW = '#3FAF8C';
-const SEVERITY_MID = '#DE9A36';
-const SEVERITY_HIGH = '#D65C77';
-
-export function severityColor(severity: number): string {
-  const clamped = Math.max(0, Math.min(10, severity));
-  if (clamped <= 5) return lerpColor(SEVERITY_LOW, SEVERITY_MID, clamped / 5);
-  return lerpColor(SEVERITY_MID, SEVERITY_HIGH, (clamped - 5) / 5);
-}
+export function severityLabel(severity: number): string { return `${severity}/10`; }
+/** One accessible color for every value, never a clinical danger level. */
+export function severityColor(_severity: number): string { return '#5745A5'; }
 
 export interface DurationOption {
   key: string;
