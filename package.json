@@ -9,7 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "release:check": "npm run typecheck && npx expo-doctor"
+    "release:check": "npm run typecheck && npx expo-doctor",
+    "test": "node --test tests/*.test.cjs",
+    "test:story": "node -r ./tests/register.cjs tools/storyGolden.ts"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -19,6 +21,7 @@
     "expo": "~54.0.37",
     "expo-auth-session": "~7.0.11",
     "expo-constants": "~18.0.14",
+    "expo-file-system": "~19.0.24",
     "expo-font": "~14.0.12",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.0",

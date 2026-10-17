@@ -1,3 +1,5 @@
+import { entryDateKey } from '../utils/entryStats';
+import { describeObservation, observationCoverage } from '../utils/observation';
 /**
  * Doctor report service (Step 6).
  *
@@ -127,15 +129,15 @@ function buildReportHtml(
         entry.bodyRegions && entry.bodyRegions.length > 0
           ? entry.bodyRegions.map((id: string) => escapeHtml(getRegionLabel(id))).join(', ')
           : '—';
-      const notes = [entry.impactNote, entry.note]
+      const notes = [entry.feelsLikeNote ?? null, entry.impactNote, entry.note, ...(entry.medicationIds ?? []).map(id => `Medication: ${medications.find(m => m.id === id)?.name ?? id}`)]
         .filter((text): text is string => text !== null && text !== '')
         .map(escapeHtml)
         .join(' — ');
       return `<tr>
-        <td>${formatReportDate(dateKeyLocal(entry.loggedAt))}</td>
-        <td>${formatTime(entry.loggedAt)}</td>
+        <td>${formatReportDate(entryDateKey(entry))}</td>
+        <td>${escapeHtml(describeObservation(entry))}</td>
         <td>${symptomLabel}</td>
-        <td style="text-align: right;">${entry.severity}/10 (${severityLabel(entry.severity)})</td>
+        <td style="text-align: right;">${entry.severity}/10</td>
         <td>${location}</td>
         <td>${entry.triggers.map(escapeHtml).join(', ') || '—'}</td>
         <td>${entry.reliefFactors.map(escapeHtml).join(', ') || '—'}</td>
@@ -255,7 +257,7 @@ td {
 }
 </style>
 </head>
-<body>
+<body><p>${escapeHtml(observationCoverage(entries))}</p>
   <h1>HealthLit — Symptom Report</h1>
   <div class="meta">Last ${rangeDays} days • Generated ${generatedOn}</div>
   ${profile ? `

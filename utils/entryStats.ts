@@ -188,3 +188,8 @@ export function formatDayLabel(dateKey: string, now: Date = new Date()): string 
     day: 'numeric',
   });
 }
+
+/** Preserve the original patient calendar day across travel/timezone changes. */
+export function entryDateKey(entry: SymptomEntry): string {
+  return entry.occurrenceDate && /^\d{4}-\d{2}-\d{2}$/.test(entry.occurrenceDate) ? entry.occurrenceDate : dateKeyLocal(entry.loggedAt);
+}

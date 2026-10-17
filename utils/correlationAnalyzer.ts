@@ -149,7 +149,7 @@ export function checkedButNotFound(
 
   return buildRejectedFactors(events).filter(
     (item) =>
-      item.reason !== 'tooFewPaired' && !reported.has(item.factor.toLowerCase()),
+      !reported.has(item.factor.toLowerCase()),
   );
 }
 
@@ -197,7 +197,7 @@ export function checkedButNotFoundInRange(
 
   return buildRejectedFactors(events).filter(
     (item) =>
-      item.reason !== 'tooFewPaired' && !reported.has(item.factor.toLowerCase()),
+      !reported.has(item.factor.toLowerCase()),
   );
 }
 
@@ -217,6 +217,6 @@ export function describeCorrelation(corr: FactorCorrelation): string {
   return (
     `After ${symptom} readings where ${corr.factor.toLowerCase()} was recorded, ` +
     `severity ${direction} about ${magnitude} points more than it did otherwise ` +
-    `(${corr.occurrences} ${corr.occurrences === 1 ? 'reading' : 'readings'}).`
+    `(${corr.occurrences} ${corr.occurrences === 1 ? 'reading' : 'readings'}). This is an association in recorded observations, not evidence of cause or treatment effect.`
   );
 }

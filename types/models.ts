@@ -27,6 +27,20 @@ export type SymptomType = (typeof SYMPTOM_TYPES)[number];
 /** A single logged symptom occurrence. Collection: `symptom_entries`. */
 export interface SymptomEntry {
   id: string;
+  /** Optional additive fields: absence on legacy records means unknown. */
+  deletedAt?: string;
+  continuity?: 'continuous' | 'intermittent' | 'unsure';
+  episodeCount?: number | null;
+  episodeCountPrecision?: 'exact' | 'approximate' | null;
+  timingPrecision?: 'exact' | 'part_of_day' | 'unsure';
+  partOfDay?: 'Morning' | 'Afternoon' | 'Evening' | 'Night' | null;
+  occurrenceDate?: string;
+  timezone?: string;
+  utcOffsetMinutes?: number;
+  /** Observation window is never assumed to be active symptom duration. */
+  observationWindowMinutes?: number | null;
+  durationPrecision?: 'exact' | 'approximate' | 'ongoing' | 'unsure';
+  durationDescription?: string | null;
   /**
    * A built-in SymptomType, or a CustomSymptom id (Tier 2). Kept as
    * `string` rather than the SymptomType union so custom types can be

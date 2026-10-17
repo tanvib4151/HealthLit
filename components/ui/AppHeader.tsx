@@ -31,6 +31,9 @@ export function AppHeader() {
         brand: {
           ...theme.typography.heading,
           fontSize: 20,
+          lineHeight: 30,
+          flexShrink: 1,
+          paddingVertical: 4,
         },
       }),
     [theme],

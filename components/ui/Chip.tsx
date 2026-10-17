@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { theme } from '../../utils/theme';
+import { useTheme } from '../../hooks/useTheme';
 
 interface ChipProps {
   label: string;
@@ -15,6 +15,8 @@ interface ChipProps {
  * uses a solid brand fill with white text for unmistakable contrast.
  */
 export function Chip({ label, selected, onToggle, testID }: ChipProps) {
+  const theme = useTheme();
+  const styles = makeStyles(theme);
   return (
     <Pressable
       accessibilityRole="button"
@@ -33,9 +35,11 @@ export function Chip({ label, selected, onToggle, testID }: ChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: ReturnType<typeof useTheme>) => StyleSheet.create({
   chip: {
-    minHeight: 44,
+    minHeight: 48,
+    minWidth: 48,
+    paddingVertical: 10,
     borderRadius: theme.radius.pill,
     borderWidth: 1.5,
     borderColor: theme.colors.border,

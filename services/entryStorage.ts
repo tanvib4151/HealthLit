@@ -58,12 +58,24 @@ export async function loadEntries(): Promise<SymptomEntry[]> {
  * Persists the full entry list to device storage.
  * Returns false on failure so callers can surface a retry if needed.
  */
-export async function saveEntries(entries: SymptomEntry[]): Promise<boolean> {
+async function writeEntries(entries: SymptomEntry[]): Promise<boolean> {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const previous: unknown = raw === null ? [] : JSON.parse(raw);
+    if (!Array.isArray(previous)) return false;
+    const unrecognized = previous.filter(value => !isSymptomEntry(value));
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...entries, ...unrecognized]));
     return true;
   } catch {
     console.warn('[entryStorage] Could not save entries.');
     return false;
   }
+}
+
+let pendingWrite: Promise<unknown> = Promise.resolve();
+export function saveEntries(entries: SymptomEntry[]): Promise<boolean> {
+  const snapshot = JSON.parse(JSON.stringify(entries)) as SymptomEntry[];
+  const result = pendingWrite.then(() => writeEntries(snapshot));
+  pendingWrite = result.catch(() => false);
+  return result;
 }

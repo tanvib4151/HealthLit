@@ -53,6 +53,7 @@ export function Button({
     const styles = StyleSheet.create({
       base: {
         minHeight: theme.touchTarget.minHeight,
+        paddingVertical: 12,
         borderRadius: theme.radius.lg,
         paddingHorizontal: theme.spacing.xxl,
         alignItems: 'center',
@@ -61,6 +62,8 @@ export function Button({
       },
       label: {
         ...theme.typography.button,
+        flexShrink: 1,
+        textAlign: 'center',
       },
       disabled: {
         opacity: 0.5,

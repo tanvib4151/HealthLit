@@ -1,3 +1,5 @@
+import { entryDateKey } from './entryStats';
+import { entryReportedHour, entryTimeBucket, formatEntryDuration, formatContinuity, formatEntryTiming } from './observation';
 /**
  * Story pipeline — stages 1-3: symptom extraction, entity resolution,
  * and structured health events.
@@ -58,6 +60,10 @@ export interface HealthEvent {
   dateKey: string;
   /** 0-23. */
   hour: number;
+  timingKnown?: boolean;
+  exactTiming?: boolean;
+  timingDescription?: string;
+  observationDescription?: string;
   /** 0 = Sunday. */
   weekday: number;
 }
@@ -176,7 +182,11 @@ export function buildHealthEvents(
       symptomLabel: option.label,
       severity: entry.severity,
       durationMinutes: entry.durationMinutes,
-      durationLabel: durationLabelFor(entry.durationMinutes),
+      durationLabel: entry.durationMinutes == null && entry.durationPrecision !== 'ongoing' ? null : formatEntryDuration(entry),
+      observationDescription: formatContinuity(entry),
+      timingKnown: entryTimeBucket(entry) !== null,
+      exactTiming: entry.timingPrecision === undefined || entry.timingPrecision === 'exact',
+      timingDescription: formatEntryTiming(entry),
       triggers: resolveList(entry.triggers),
       reliefFactors: resolveList(entry.reliefFactors),
       qualities: resolveList(entry.qualities),
@@ -188,8 +198,8 @@ export function buildHealthEvents(
           : null,
       notes,
       at,
-      dateKey: dateKeyLocal(entry.loggedAt),
-      hour: at.getHours(),
+      dateKey: entryDateKey(entry),
+      hour: entry.timingPrecision === 'part_of_day' ? ({ Morning: 9, Afternoon: 14, Evening: 19, Night: 23 }[entry.partOfDay ?? 'Morning']) : entryReportedHour(entry),
       weekday: at.getDay(),
     });
   }

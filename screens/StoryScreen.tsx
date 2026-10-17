@@ -25,7 +25,7 @@ import { useProfileStore } from '../store/profileStore';
 import { useStoryStore } from '../store/storyStore';
 import { useTheme } from '../hooks/useTheme';
 import { dateKeyFromLocalDate } from '../utils/healthEvents';
-import { evaluateStoryGate } from '../utils/storyGate';
+
 import {
   applySectionOverrides,
   buildStoryReport,
@@ -37,7 +37,6 @@ import { Sentence } from '../utils/storyNlg';
 import { ChartSpec } from '../utils/storyCharts';
 import { StoryChartList } from '../components/story/StoryChartCard';
 import { HealthEvent } from '../utils/healthEvents';
-import { formatTimeWithBucket } from '../utils/entryStats';
 import { formatDayLabelShort } from '../utils/storyTimeline';
 import { severityColor } from '../utils/symptoms';
 
@@ -80,10 +79,8 @@ function daysAgo(count: number, from: Date = new Date()): Date {
  * Symptoms-to-Story — HealthLit's signature feature.
  *
  * Turns logged entries into a nine-section, doctor-ready summary over
- * a date range the user chooses. Generation is gated until there are
- * at least 14 logged days in the last 20: a summary built from a
- * handful of scattered entries reads authoritative without being
- * complete, which is worse than showing nothing.
+ * a date range the user chooses. Descriptions are available immediately;
+ * each pattern is assessed against its own relevant observations.
  *
  * The whole report is produced by deterministic on-device code (see
  * utils/storyReport.ts and the pipeline modules it calls) — there is
@@ -116,7 +113,7 @@ export default function StoryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const gate = useMemo(() => evaluateStoryGate(entries), [entries]);
+
 
   // The picker reaches back to the oldest entry (plus a little), so
   // someone with a year of history can actually select it.
@@ -318,27 +315,7 @@ export default function StoryScreen() {
         </Text>
       </Card>
 
-      {!gate.unlocked ? (
-        <Card style={styles.gateCard}>
-          <View style={styles.gateTitleRow}>
-            <Ionicons name="lock-closed-outline" size={20} color={theme.colors.inkSecondary} />
-            <Text style={styles.gateTitle}>Keep logging to unlock your story</Text>
-          </View>
-          <Text style={styles.gateCount}>
-            {gate.daysLogged} of {gate.requiredDays} days
-          </Text>
-          <View style={styles.gateTrack}>
-            <View style={[styles.gateFill, { width: `${gate.progress * 100}%` }]} />
-          </View>
-          <Text style={styles.gateText}>
-            A summary you hand to a doctor needs enough behind it to be worth
-            reading. HealthLit generates your story once you have logged on at
-            least {gate.requiredDays} of the last {gate.windowDays} days —{' '}
-            {gate.daysRemaining} more {gate.daysRemaining === 1 ? 'day' : 'days'} to
-            go. Everything logged so far still counts.
-          </Text>
-        </Card>
-      ) : displayedReport === null ? (
+      {displayedReport === null ? (
         <>
           <Button
             label="Generate story"
@@ -814,7 +791,7 @@ function EvidenceModal({
         },
         swatchText: {
           fontFamily: theme.fonts.bold,
-          color: theme.colors.onPrimary,
+          color: '#FFFFFF',
           fontSize: 15,
         },
         rowBody: { flex: 1, gap: 2 },
@@ -882,7 +859,7 @@ function EvidenceModal({
                     <Text style={styles.rowTitle}>{event.symptomLabel}</Text>
                     <Text style={styles.rowMeta}>
                       {formatDayLabelShort(event.dateKey)} ·{' '}
-                      {formatTimeWithBucket(event.at.toISOString())}
+                      {event.timingDescription ?? 'Time not provided'} · {event.observationDescription} · {event.durationLabel ?? 'Duration not provided'}
                       {event.durationLabel !== null ? ` · ${event.durationLabel}` : ''}
                     </Text>
                     {factors.length > 0 && (

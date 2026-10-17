@@ -102,7 +102,11 @@ service cloud.firestore {
                'id', 'symptomType', 'severity', 'durationMinutes',
                'triggers', 'reliefFactors', 'impactNote', 'note',
                'qualities', 'bodyRegions', 'medicationIds', 'feelsLikeNote',
-               'loggedAt', 'createdAt', 'updatedAt', 'schemaVersion'
+               'loggedAt', 'createdAt', 'updatedAt', 'schemaVersion',
+               'continuity', 'episodeCount', 'episodeCountPrecision',
+               'timingPrecision', 'partOfDay', 'occurrenceDate', 'timezone',
+               'utcOffsetMinutes', 'observationWindowMinutes',
+               'durationPrecision', 'durationDescription', 'deletedAt'
              ])
              && incoming().keys().hasAll([
                'id', 'symptomType', 'severity', 'loggedAt',
@@ -113,6 +117,18 @@ service cloud.firestore {
              // with its own contents.
              && incoming().id == docId
              && isShortString(incoming().symptomType, 100)
+             && incoming().get('continuity', null) in [null, 'continuous', 'intermittent', 'unsure']
+             && incoming().get('timingPrecision', null) in [null, 'exact', 'part_of_day', 'unsure']
+             && incoming().get('partOfDay', null) in [null, 'Morning', 'Afternoon', 'Evening', 'Night']
+             && incoming().get('episodeCountPrecision', null) in [null, 'exact', 'approximate']
+             && incoming().get('durationPrecision', null) in [null, 'exact', 'approximate', 'ongoing', 'unsure']
+             && (incoming().get('episodeCount', null) == null || (incoming().episodeCount is int && incoming().episodeCount > 0 && incoming().episodeCount <= 100000))
+             && (incoming().get('observationWindowMinutes', null) == null || (incoming().observationWindowMinutes is int && incoming().observationWindowMinutes > 0 && incoming().observationWindowMinutes <= 100000))
+             && isNullOrShortString(incoming().get('durationDescription', null), 100)
+             && isNullOrShortString(incoming().get('occurrenceDate', null), 10)
+             && isNullOrShortString(incoming().get('timezone', null), 100)
+             && (incoming().get('utcOffsetMinutes', null) == null || (incoming().utcOffsetMinutes is int && incoming().utcOffsetMinutes >= -840 && incoming().utcOffsetMinutes <= 840))
+             && (incoming().get('deletedAt', null) == null || isTimestampString(incoming().deletedAt))
              && incoming().severity is int
              && incoming().severity >= 0 && incoming().severity <= 10
              && (incoming().durationMinutes == null

@@ -33,6 +33,7 @@ import { create } from 'zustand';
 import { loadEntries, saveEntries } from '../services/entryStorage';
 import { syncEntriesToCloud } from '../services/syncService';
 import { SymptomEntry } from '../types/models';
+import { dateKeyFromDate } from '../utils/entryStats';
 import { generateId } from '../utils/id';
 import { mergeById } from '../utils/syncMerge';
 import { DURATION_OPTIONS } from '../utils/symptoms';
@@ -40,6 +41,10 @@ import { DURATION_OPTIONS } from '../utils/symptoms';
 /** Everything recorded for ONE symptom within a logging session. */
 export interface PerSymptomDraft {
   symptomType: string;
+  continuity?: SymptomEntry['continuity'];
+  episodeCount?: number | null;
+  episodeCountPrecision?: SymptomEntry['episodeCountPrecision'];
+  observationWindowMinutes?: number | null;
   /** null until the user touches the ruler for this card. */
   severity: number | null;
   /** Key into DURATION_OPTIONS; null until chosen. */
@@ -74,6 +79,9 @@ export interface LogDraft {
    * across the session: it's one question about one episode.
    */
   occurredAt: Date;
+  timingValid?: boolean;
+  timingPrecision?: SymptomEntry['timingPrecision'];
+  partOfDay?: SymptomEntry['partOfDay'];
 }
 
 function createEmptySymptomDraft(symptomType: string): PerSymptomDraft {
@@ -95,7 +103,7 @@ function createEmptySymptomDraft(symptomType: string): PerSymptomDraft {
 }
 
 function createEmptyDraft(): LogDraft {
-  return { symptomDrafts: [], occurredAt: new Date() };
+  return { symptomDrafts: [], occurredAt: new Date(), timingPrecision: 'unsure', partOfDay: null };
 }
 
 function toggleValue(list: string[], value: string): string[] {
@@ -121,8 +129,12 @@ function draftFromEntry(entry: SymptomEntry): LogDraft {
     symptomDrafts: [
       {
         symptomType: entry.symptomType,
+        continuity: entry.continuity,
+        episodeCount: entry.episodeCount,
+        episodeCountPrecision: entry.episodeCountPrecision,
+        observationWindowMinutes: entry.observationWindowMinutes,
         severity: entry.severity,
-        durationKey: durationKeyFromMinutes(entry.durationMinutes),
+        durationKey: entry.durationPrecision === 'ongoing' ? 'ongoing' : entry.durationPrecision === 'approximate' ? DURATION_OPTIONS.find(o => o.label === entry.durationDescription)?.key ?? durationKeyFromMinutes(entry.durationMinutes) : entry.durationMinutes == null ? null : `exact_${entry.durationMinutes}`,
         triggers: entry.triggers,
         reliefFactors: entry.reliefFactors,
         qualities: entry.qualities ?? [],
@@ -136,6 +148,8 @@ function draftFromEntry(entry: SymptomEntry): LogDraft {
       },
     ],
     occurredAt: new Date(entry.loggedAt),
+    timingPrecision: entry.timingPrecision,
+    partOfDay: entry.partOfDay,
   };
 }
 
@@ -159,8 +173,12 @@ interface LogStoreState {
   editingEntryId: string | null;
   /** Newest first. Hydrated from device storage at launch. */
   entries: SymptomEntry[];
+  deletedEntries: SymptomEntry[];
+  deleteEntry: (id: string) => Promise<boolean>;
   /** True once saved entries have been loaded from device storage. */
   hydrated: boolean;
+  saving: boolean;
+  saveError: string | null;
   /** Loads saved entries from storage. Safe to call more than once. */
   hydrate: () => Promise<void>;
   /** Adds or removes a symptom card from the current session. */
@@ -176,6 +194,9 @@ interface LogStoreState {
   setImpactNoteFor: (symptomType: string, impactNote: string) => void;
   setNoteFor: (symptomType: string, note: string) => void;
   setOccurredAt: (occurredAt: Date) => void;
+  setTimingValid: (valid: boolean) => void;
+  setTiming: (precision: SymptomEntry['timingPrecision'], part?: SymptomEntry['partOfDay']) => void;
+  patchSymptom: (type: string, patch: Partial<PerSymptomDraft>) => void;
   /**
    * Copies everything except severity from one card onto another —
    * the "same as my headache" shortcut. Logging four symptoms from
@@ -197,7 +218,7 @@ interface LogStoreState {
    * Persists and syncs. Returns null if the card is missing or has no
    * severity yet.
    */
-  saveSymptomCard: (symptomType: string) => SymptomEntry | null;
+  saveSymptomCard: (symptomType: string) => Promise<SymptomEntry | null>;
   /** Replaces all entries with a demo dataset. Never syncs to cloud. */
   loadDemoEntries: (entries: SymptomEntry[]) => void;
   /** Wipes all entries (local only — used to reset after a demo). */
@@ -213,7 +234,24 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
   draft: createEmptyDraft(),
   editingEntryId: null,
   entries: [],
+  deletedEntries: [],
+  deleteEntry: async (id) => {
+    const state = get();
+    const entry = state.entries.find(e => e.id === id);
+    if (!entry) return false;
+    const deletedAt = new Date().toISOString();
+    // Retain only the sync marker, never the deleted patient's notes/details.
+    const deleted: SymptomEntry = { id, symptomType: 'deleted', severity: 0, durationMinutes: null, triggers: [], reliefFactors: [], impactNote: null, note: null, loggedAt: deletedAt, createdAt: deletedAt, updatedAt: deletedAt, deletedAt, schemaVersion: 1 };
+    const entries = state.entries.filter(e => e.id !== id);
+    const deletedEntries = [...state.deletedEntries, deleted];
+    if (!(await saveEntries([...entries, ...deletedEntries]))) return false;
+    set({ entries, deletedEntries });
+    void syncEntriesToCloud([...entries, ...deletedEntries]);
+    return true;
+  },
   hydrated: false,
+  saving: false,
+  saveError: null,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -228,11 +266,10 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
         ...state.entries,
         ...stored.filter((entry) => !existingIds.has(entry.id)),
       ];
-      return { entries: sortNewestFirst(merged), hydrated: true };
+      return { entries: sortNewestFirst(merged.filter(e => !e.deletedAt)), deletedEntries: merged.filter(e => !!e.deletedAt), hydrated: true };
     });
 
-    // Re-persist the merged list so storage self-heals.
-    void saveEntries(get().entries);
+    // Reading must not rewrite or discard unreadable legacy records.
   },
 
   toggleSymptomType: (symptomType) =>
@@ -331,6 +368,9 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
       draft: patchCard(state.draft, symptomType, (card) => ({ ...card, note })),
     })),
 
+  patchSymptom: (type, patch) => set(state => ({ draft: patchCard(state.draft, type, card => ({ ...card, ...patch })) })),
+  setTimingValid: (timingValid) => set(state => ({ draft: { ...state.draft, timingValid } })),
+  setTiming: (timingPrecision, partOfDay = null) => set(state => ({ draft: { ...state.draft, timingPrecision, partOfDay, timingValid: true } })),
   setOccurredAt: (occurredAt) =>
     set((state) => ({ draft: { ...state.draft, occurredAt } })),
 
@@ -346,6 +386,10 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
           // Severity deliberately NOT copied: two symptoms being
           // equally severe is a coincidence, not a default.
           durationKey: source.durationKey,
+          continuity: source.continuity,
+          episodeCount: source.episodeCount,
+          episodeCountPrecision: source.episodeCountPrecision,
+          observationWindowMinutes: source.observationWindowMinutes,
           feelsLikeNote: source.feelsLikeNote,
           medicationIds: [...source.medicationIds],
           triggers: [...source.triggers],
@@ -363,10 +407,11 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
   startEditingEntry: (entry) =>
     set({ draft: draftFromEntry(entry), editingEntryId: entry.id }),
 
-  saveSymptomCard: (symptomType) => {
+  saveSymptomCard: async (symptomType) => {
+    if (get().saving) return null;
     const { draft, entries } = get();
     const card = draft.symptomDrafts.find((item) => item.symptomType === symptomType);
-    if (!card || card.severity === null) return null;
+    if (!card || card.severity === null || draft.timingValid === false) return null;
 
     const duration = DURATION_OPTIONS.find((option) => option.key === card.durationKey);
     const nowIso = new Date().toISOString();
@@ -374,7 +419,17 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
     const shared = {
       symptomType: card.symptomType,
       severity: card.severity,
-      durationMinutes: duration ? duration.minutes : null,
+      durationMinutes: card.durationKey?.startsWith('exact_') ? Number(card.durationKey.slice(6)) : duration ? duration.minutes : null,
+      durationPrecision: (card.durationKey === 'ongoing' ? 'ongoing' : card.durationKey?.startsWith('exact_') ? 'exact' : duration ? 'approximate' : 'unsure') as SymptomEntry['durationPrecision'],
+      durationDescription: duration?.label ?? null,
+      continuity: card.continuity ?? 'unsure',
+      episodeCount: card.continuity === 'intermittent' ? card.episodeCount ?? null : null,
+      episodeCountPrecision: card.continuity === 'intermittent' && card.episodeCount ? card.episodeCountPrecision ?? 'exact' : null,
+      observationWindowMinutes: card.observationWindowMinutes ?? null,
+      ...(draft.timingPrecision ? { timingPrecision: draft.timingPrecision, partOfDay: draft.partOfDay ?? null } : {}),
+      occurrenceDate: dateKeyFromDate(draft.occurredAt),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      utcOffsetMinutes: -draft.occurredAt.getTimezoneOffset(),
       triggers: card.triggers,
       reliefFactors: card.reliefFactors,
       qualities: card.qualities,
@@ -397,6 +452,26 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
     const existing =
       card.entryId !== null ? entries.find((entry) => entry.id === card.entryId) : undefined;
 
+    if (existing && draftFromEntry(existing).symptomDrafts[0].durationKey === card.durationKey) {
+      shared.durationMinutes = existing.durationMinutes;
+      if (existing.durationPrecision === undefined) delete shared.durationPrecision;
+      else shared.durationPrecision = existing.durationPrecision;
+      shared.durationDescription = existing.durationDescription ?? null;
+    }
+    if (existing && existing.loggedAt === shared.loggedAt) {
+      if (existing.occurrenceDate === undefined) delete (shared as Partial<typeof shared>).occurrenceDate;
+      else shared.occurrenceDate = existing.occurrenceDate;
+      if (existing.timezone === undefined) delete (shared as Partial<typeof shared>).timezone;
+      else shared.timezone = existing.timezone;
+      if (existing.utcOffsetMinutes === undefined) delete (shared as Partial<typeof shared>).utcOffsetMinutes;
+      else shared.utcOffsetMinutes = existing.utcOffsetMinutes;
+    }
+
+    if (existing) {
+      if (card.note === (existing.note ?? '')) shared.note = existing.note;
+      if (card.impactNote === (existing.impactNote ?? '')) shared.impactNote = existing.impactNote;
+      if (card.feelsLikeNote === (existing.feelsLikeNote ?? '')) shared.feelsLikeNote = existing.feelsLikeNote ?? null;
+    }
     const result: SymptomEntry = existing
       ? { ...existing, ...shared }
       : {
@@ -406,12 +481,15 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
           schemaVersion: 1,
         };
 
+    set({ saving: true, saveError: null });
+    const nextEntries = sortNewestFirst(existing ? entries.map(e => e.id === result.id ? result : e) : [result, ...entries]);
+    if (!(await saveEntries([...nextEntries, ...get().deletedEntries]))) {
+      set({ saving: false, saveError: 'Could not save this entry. Your previous records are unchanged. Please try again.' });
+      return null;
+    }
     set((state) => ({
-      entries: sortNewestFirst(
-        existing
-          ? state.entries.map((entry) => (entry.id === result.id ? result : entry))
-          : [result, ...state.entries],
-      ),
+      entries: nextEntries,
+      saving: false,
       draft: patchCard(state.draft, symptomType, (item) => ({
         ...item,
         saved: true,
@@ -419,10 +497,9 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
       })),
     }));
 
-    // Persist in the background; the service warns (generically) on failure.
-    void saveEntries(get().entries);
+    // The local write succeeded before presenting a saved state.
     // Best-effort cloud backup — a silent no-op if not signed in.
-    void syncEntriesToCloud(get().entries);
+    void syncEntriesToCloud([...get().entries, ...get().deletedEntries]);
 
     return result;
   },
@@ -435,7 +512,7 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
    */
   loadDemoEntries: (entries) => {
     set({ entries: sortNewestFirst(entries) });
-    void saveEntries(get().entries);
+    void saveEntries([...get().entries, ...get().deletedEntries]);
   },
 
   clearAllEntries: () => {
@@ -444,7 +521,10 @@ export const useLogStore = create<LogStoreState>((set, get) => ({
   },
 
   mergeRemoteEntries: (remote) => {
-    set((state) => ({ entries: sortNewestFirst(mergeById(state.entries, remote)) }));
-    void saveEntries(get().entries);
+    set((state) => {
+      const merged = mergeById([...state.entries, ...state.deletedEntries], remote);
+      return { entries: sortNewestFirst(merged.filter(e => !e.deletedAt)), deletedEntries: merged.filter(e => !!e.deletedAt) };
+    });
+    void saveEntries([...get().entries, ...get().deletedEntries]);
   },
 }));

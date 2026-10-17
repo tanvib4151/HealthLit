@@ -137,22 +137,8 @@ export function buildProgressionFindings(
       entryIds: [...recent, ...earlier].map((event) => event.entryId),
     };
 
-    // RESOLVED — was present before, absent for a good while now.
-    if (recent.length === 0 && earlier.length > 0) {
-      const lastSeen = distinctDayKeys(earlier).slice(-1)[0];
-      const daysSince = Math.round(
-        (now.getTime() - new Date(lastSeen).getTime()) / 86400000,
-      );
-      if (daysSince >= RESOLVED_DAYS) {
-        findings.push({
-          ...base,
-          state: 'resolved',
-          dateKey: lastSeen,
-          daysSince,
-        });
-      }
-      return;
-    }
+    // No record means unknown, even when other symptoms were logged.
+    if (recent.length === 0) return;
 
     if (recentDays < MIN_DAYS_FOR_PROGRESSION) return;
 
@@ -202,13 +188,13 @@ export function describeProgression(finding: ProgressionFinding): string {
 
   switch (finding.state) {
     case 'new':
-      return `${label} is new in this period — first recorded ${formatDayLabelLong(
+      return `${label} was first recorded in this period — first recorded ${formatDayLabelLong(
         finding.dateKey ?? '',
-      )}, and not present anywhere earlier in my logs.`;
+      )}, and not recorded earlier in my logs. This does not establish when the symptom began.`;
     case 'increasing':
-      return `${label} has become more frequent — about ${now} days a week now, against ${before} before this period.`;
+      return `${label} was recorded more often — about ${now} days a week now, against ${before} before this period.`;
     case 'decreasing':
-      return `${label} has become less frequent — about ${now} days a week now, against ${before} before this period.`;
+      return `${label} was recorded less often — about ${now} days a week now, against ${before} before this period.`;
     case 'persistent':
       return `${label} has been recorded on ${finding.recentDays} of the last ${finding.windowDays} days — close to daily.`;
     case 'resolved':
@@ -216,7 +202,7 @@ export function describeProgression(finding: ProgressionFinding): string {
         finding.dateKey ?? '',
       )}.`;
     default:
-      return `${label} is about as frequent as before — roughly ${now} days a week.`;
+      return `${label} was recorded about as often as before — roughly ${now} days a week.`;
   }
 }
 

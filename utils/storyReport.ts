@@ -140,7 +140,7 @@ export const SECTION_TITLES: Record<StorySectionKey, string> = {
   experience: "What I'm experiencing",
   frequency: 'Frequency and duration',
   patterns: 'Patterns and possible triggers',
-  relief: 'Factors that improve the condition',
+  relief: 'Reported relief factors',
   cooccurring: 'Other symptoms experienced alongside',
   medications: 'Medications and interventions tried',
 };
@@ -350,6 +350,8 @@ function buildFrequencySection(
   for (const profile of profiles.slice(0, 5)) {
     const label = profile.symptomLabel ?? 'This symptom';
     const dayCount = Number(profile.facts.dayCount ?? 0);
+    const observations = profile.facts.observationDescriptions;
+    if (Array.isArray(observations)) body.push(sentence(`${label}: ${observations.join('; ')}.`, profile.entryIds, [profile.id]));
     const durations = unpackCounts(profile.facts.topDurations);
     const missing = Number(profile.facts.durationMissing ?? 0);
 
@@ -507,8 +509,7 @@ function buildReliefSection(
     );
     body.push(
       sentence(
-        `Recorded as helping, but with no measurable difference in the readings ` +
-          `that followed: ${described}.`,
+        `Recorded as helping: ${described}. The available follow-up readings do not support a consistent comparison; this does not establish whether these factors helped.`,
         noEffect.flatMap((item) => item.entryIds),
         [],
       ),
